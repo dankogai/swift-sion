@@ -37,8 +37,13 @@ playground.xcworkspace
 # Add this line if you want to avoid checking in source code from Swift Package Manager dependencies.
 # Packages/
 # Package.pins
-# Package.resolved
+Package.resolved
 .build/
+.attic/
+# .xcodeproj is ignored. use `swift package generate-xcodeproj`
+*.xcodeproj
+# ignore this directory for scripts/ios-prep.sh
+iOS/JSON.playground/Sources
 
 # CocoaPods
 #

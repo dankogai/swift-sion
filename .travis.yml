@@ -1,0 +1,16 @@
+matrix:
+  include:
+#    - os: linux
+#      language: generic
+#      dist: xenial
+#      sudo: required
+    - os: osx
+      language: objective-c
+      osx_image: xcode9.3
+script:
+  - swift test -c release -Xswiftc -enable-testing
+before_install:
+  - chmod a+x ./scripts/travis-prep.sh
+  - . ./scripts/travis-prep.sh
+notifications:
+  email: false
