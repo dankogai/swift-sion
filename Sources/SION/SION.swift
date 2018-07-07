@@ -21,7 +21,7 @@ public indirect enum SION:Equatable {
     public typealias Value  = SION
     public typealias Index  = Int
     case Error(SIONError)
-    case Null
+    case Nil
     case Bool(Bool)
     case Int(Int)
     case Double(Double)
@@ -33,7 +33,7 @@ extension SION : Hashable {
     public var hashValue: Int {
         switch self {
         case .Error(let m):         fatalError("\(m)")
-        case .Null:                 return NSNull().hashValue
+        case .Nil:                  return NSNull().hashValue
         case .Bool(let v):          return v.hashValue
         case .Int(let v):           return v.hashValue
         case .Double(let v):        return v.hashValue
@@ -49,7 +49,7 @@ extension SION : CustomStringConvertible {
         let g = s == "" ? "" : " "
         switch self {
         case .Error(let m):     return ".Error(\"\(m)\")"
-        case .Null:             return "null"
+        case .Nil:              return "nil"
         case .Bool(let v):      return v.description
         case .Int(let v):       return v.description
         case .Double(let v):    return v.description
@@ -85,7 +85,7 @@ extension SION : CustomStringConvertible {
         let g = s == "" ? "" : " "
         switch self {
         case .Error(let m):     return ".Error(\"\(m)\")"
-        case .Null:             return "null"
+        case .Nil:              return "null"
         case .Bool(let v):      return v.description
         case .Int(let v):       return v.description
         case .Double(let v):    return v.description
@@ -124,8 +124,8 @@ extension SION :
     ExpressibleByNilLiteral, ExpressibleByBooleanLiteral,
     ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral, ExpressibleByStringLiteral,
     ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral {
-    public init()                               { self = .Null }
-    public init(nilLiteral: ())                 { self = .Null }
+    public init()                               { self = .Nil }
+    public init(nilLiteral: ())                 { self = .Nil }
     public typealias BooleanLiteralType = Bool
     public init(_ value:Bool)                   { self = .Bool(value) }
     public init(booleanLiteral value: Bool)     { self = .Bool(value) }
@@ -159,7 +159,7 @@ extension SION {
             case "s","S","l","L","q","Q":   self = .Int(a as! Int)
             default:        self = .Double(a as! Double)
             }
-        case nil:               self = .Null
+        case nil:               self = .Nil
         case let a as String:   self = .String(a)
         case let a as [Any?]:   self = .Array(a.map{ SION(nsObject:$0) })
         case let a as [Key:Any?]:
@@ -177,7 +177,7 @@ extension SION {
     /// SION -> NSObject
     public var nsObject:Any {
         switch self {
-        case .Null:             return NSNull()
+        case .Nil:             return NSNull()
         case .Bool(let v):      return v
         case .Int(let v):       return v
         case .Double(let v):    return v
@@ -206,7 +206,7 @@ extension SION {
         if let url = URL(string: jsonUrlString) {
             self = SION(jsonURL:url)
         } else {
-            self = SION.Null
+            self = SION.Nil
         }
     }
     public init(jsonURL:URL) {
@@ -234,7 +234,7 @@ extension SION {
     public var type:ContentType {
         switch self {
         case .Error(_):         return .error
-        case .Null:             return .null
+        case .Nil:             return .null
         case .Bool(_):          return .bool
         case .Int(_):           return .int
         case .Double(_):        return .double
@@ -293,7 +293,7 @@ extension SION {
                     a[idx] = newValue
                 } else {
                     for _ in a.count ..< idx {
-                        a.append(.Null)
+                        a.append(.Nil)
                     }
                     a.append(newValue)
                 }
@@ -386,78 +386,118 @@ extension SION : Sequence {
         }
     }
 }
-//extension SION {
-//    /// parse string to SION
-//    public static func parse(_ string:String)->SION {
-//        func m_nil(_ s:String, _ i:Swift.Int)->(SION, Swift.Int)? {
-//            return s.hasPrefix("nil") ? (SION.Null, i + 3) : nil
-//        }
-//        func m_bool(_ s:String, _ i:Swift.Int)->(SION, Swift.Int)? {
-//            if s.hasPrefix("true")  { return (SION.Bool(true),  i + 4) }
-//            if s.hasPrefix("false") { return (SION.Bool(false), i + 5) }
-//            return nil
-//        }
-//        func m_double(_ s:String, _ i:Swift.Int)->(SION, Swift.Int)? {
-//            let re = try! NSRegularExpression(pattern:
-//                "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)|[0-9]+\\.[0-9]+(:?[eE][+-]?[0-9]+)?)"
-//            )
-//            if let cr = re.firstMatch(in: s, range: NSRange(i..<s.count)) {
-//                let whole     = s[Range(cr.range, in:s)!]
-//                let sign      = s[Range(cr.range(at:1), in:s)!]
-//                let magnitude = s[Range(cr.range(at:2), in:s)!]
-//                let double    = (sign == "-" ? -1.0 : +1.0) * Swift.Double(magnitude)!
-//                return (SION.Double(double), i + whole.count)
-//            }  else {
-//                return nil
-//            }
-//        }
-//        func m_int(_ s:String, _ i:Swift.Int)->(SION, Swift.Int)? {
-//            let re = try! NSRegularExpression(pattern:"([+-]?)(0(:?x[0-9a-fA-F]+|o[0-7]+|b[01]+)|[0-9]+)")
-//            var int = 0
-//            if let cr = re.firstMatch(in: s, range: NSRange(i..<s.count)) {
-//                let whole     = s[Range(cr.range, in:s)!]
-//                let sign      = s[Range(cr.range(at:1), in:s)!]
-//                let magnitude = s[Range(cr.range(at:2), in:s)!]
-//                if magnitude.hasPrefix("0") && 2 < magnitude.count {
-//                    let offset = magnitude.index(magnitude.startIndex, offsetBy:2)
-//                    switch magnitude[magnitude.index(after:magnitude.startIndex)] {
-//                    case "x": int = Swift.Int(magnitude[offset...], radix:16)!
-//                    case "o": int = Swift.Int(magnitude[offset...], radix:8)!
-//                    case "b": int = Swift.Int(magnitude[offset...], radix:2)!
-//                    default: int = Swift.Int(magnitude)!
-//                    }
-//                } else {
-//                    int = Swift.Int(magnitude)!
-//                }
-//                return (SION.Int(sign == "-" ? -int : +int), i + whole.count)
-//            }  else {
-//                return nil
-//            }
-//        }
-//        func m_string(_ s:String, _ i:Swift.Int)->(SION, Swift.Int)? {
-//            let re = try! NSRegularExpression(pattern:
-//                "\"((?<!\\\\).*)\""
-//            )
-//            if let cr = re.firstMatch(in: s, range: NSRange(i..<s.count)) {
-//                let whole     = s[Range(cr.range, in:s)!]
-//                let string    = s[Range(cr.range(at:1), in:s)!]
-//                return (SION(Swift.String(string)), i + whole.count)
-//            }  else {
-//                return nil
-//            }
-//        }
-//        let idx = 0
-//        if let m = m_nil(string, idx)   { return m.0 }
-//        if let m = m_bool(string, idx)  { return m.0 }
-//        if let m = m_double(string, idx){ return m.0 }
-//        if let m = m_int(string, idx)   { return m.0 }
-//        if let m = m_string(string, idx) { return m.0 }
-//        return .Error(.notASIONType)
-//    }
-//    init(string:String) {
-//        self = SION.parse(string)
-//    }
-//}
+extension SION {
+    /// parse string to SION
+    public static func parse(_ string:Swift.String)->SION {
+        let s_null = "nil"
+        let s_bool = "true|false"
+        let s_double = "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)|(?:[1-9][0-9]*|0)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?)"
+        let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
+        let s_string = "\"(.*?)(?<!\\\\)\""
+        func tokenize(_ string:Swift.String)->[Swift.String] {
+            let s_all = [ "\\[", "\\]", ":", ",", s_null, s_bool, s_double, s_int, s_string].joined(separator:"|")
+            let re = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
+            var tokens = [Swift.String]()
+            re.enumerateMatches(in: string, range:NSRange(0..<string.count)) { cr, _, _ in
+                tokens.append( Swift.String(string[Range(cr!.range, in:string)!]) )
+            }
+            return tokens
+        }
+        func toBool(_ s:String)->SION? {
+            return s == "true" ? .Bool(true) : s == "false" ? .Bool(false) : nil
+        }
+        func toDouble(_ s:String)->SION? {
+            let re = try! NSRegularExpression(pattern:"\\A\(s_double)\\z")
+            guard let cr = re.firstMatch(in: s, range: NSRange(0..<s.count)) else { return nil }
+            let sign      = s[Range(cr.range(at:1), in:s)!]
+            let magnitude = s[Range(cr.range(at:2), in:s)!]
+            let double    = (sign == "-" ? -1.0 : +1.0) * Swift.Double(magnitude)!
+            return .Double(double)
+        }
+        func toInt(_ s:String)->SION? {
+            let re = try! NSRegularExpression(pattern:"\\A\(s_int)\\z")
+            guard let cr = re.firstMatch(in: s, range: NSRange(0..<s.count)) else { return nil }
+            var int = 0
+            let sign      = s[Range(cr.range(at:1), in:s)!]
+            let magnitude = s[Range(cr.range(at:2), in:s)!]
+            if magnitude.hasPrefix("0") && 2 < magnitude.count {
+                let offset = magnitude.index(magnitude.startIndex, offsetBy:2)
+                switch magnitude[magnitude.index(after:magnitude.startIndex)] {
+                case "x": int = Swift.Int(magnitude[offset...], radix:16)!
+                case "o": int = Swift.Int(magnitude[offset...], radix:8)!
+                case "b": int = Swift.Int(magnitude[offset...], radix:2)!
+                default: int = Swift.Int(magnitude)!
+                }
+            } else {
+                int = Swift.Int(magnitude)!
+            }
+            return .Int(sign == "-" ? -int : +int)
+        }
+        func toString(_ s:String)->SION? {
+            if s.first != "\"" { return nil }
+            if s.last  != "\"" { return nil }
+            return SION(json:Swift.String(s))
+        }
+        func toElement(_ s:Swift.String)->SION {
+            return s == "nil" ? .Nil : toBool(s) ?? toInt(s) ?? toDouble(s) ?? toString(s) ?? .Error(.notASIONType)
+        }
+        func toCollection(_ tokens:[Swift.String])->SION {
+            // print(tokens)
+
+            let isDictionary = 2 < tokens.count && tokens[2] == ":" || tokens[1] == ":"
+            var elems = [SION]()
+            var i = 1, d = 0
+            while i < tokens.count {
+                if tokens[i] == "[" {
+                    var subtokens = ["["]
+                    d = 1; i += 1
+                    while true {
+                        if tokens[i] == "["         { d += 1 }
+                        else if tokens[i] == "]"    { d -= 1 }
+                        subtokens.append(tokens[i])
+                        if d == 0 { break }
+                        i += 1
+                    }
+                    elems.append(toCollection(subtokens))
+                    continue
+                }
+                if !Set([":", ",", "[", "]"]).contains(tokens[i]) {
+                    elems.append(toElement(tokens[i]))
+                }
+                i += 1
+            }
+            // print(elems)
+            if isDictionary {
+                var dict = [Key:Value]()
+                while !elems.isEmpty {
+                    let v = elems.removeLast()
+                    if elems.isEmpty { return .Error(.notASIONType) } // safety measure
+                    let k = elems.removeLast()
+                    dict[k] = v
+                }
+                return .Dictionary(dict)
+            } else {
+                return .Array(elems)
+            }
+        }
+        let tokens = tokenize(string)
+//        print(tokens)
+        if tokens.isEmpty {
+            return .Error(.notASIONType)
+        }
+        if tokens.count == 1 {
+            print(tokens[0])
+            return toElement(tokens[0])
+        }
+        if tokens[0] == "[" {
+            return toCollection(tokens)
+        }
+        return .Error(.notASIONType)
+    }
+    init(string:String) {
+        self = SION.parse(string)
+    }
+}
 extension SION : Codable {
     private static let codableTypes:[Codable.Type] = [
         [Key:Value].self, [Value].self,
@@ -491,7 +531,7 @@ extension SION : Codable {
                 }
             }
         }
-        self = SION.Null
+        self = SION.Nil
     }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
