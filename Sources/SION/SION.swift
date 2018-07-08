@@ -488,7 +488,6 @@ extension SION {
                 }
                 i += 1
             }
-            // print(elems)
             if isDictionary {
                 var dict = [Key:Value]()
                 while !elems.isEmpty {
@@ -503,17 +502,12 @@ extension SION {
             }
         }
         let tokens = tokenize(string)
-        if tokens.isEmpty {
-            return .Error(.notASIONType)
-        }
-        if tokens.count == 1 {
-            return toElement(tokens[0])
-        }
-        if tokens[0] == "[" {
-            return toCollection(tokens)
-        }
-        return .Error(.notASIONType)
+        return tokens.isEmpty ? .Error(.notASIONType)
+            :  tokens.count == 1 ? toElement(tokens[0])
+            :  tokens[0] == "["  ? toCollection(tokens)
+            : .Error(.notASIONType)
     }
+    /// initialize from string
     init(string:String) {
         self = SION.parse(string)
     }
