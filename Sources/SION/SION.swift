@@ -47,7 +47,7 @@ extension SION : Hashable {
         }
     }
 }
-extension SION : CustomStringConvertible {
+extension SION : CustomStringConvertible, CustomDebugStringConvertible {
     public func toString(depth d:Int, separator s:String, terminator t:String, sortedKey:Bool=false)->String {
         let i = Swift.String(repeating:s, count:d)
         let g = s == "" ? "" : " "
@@ -85,6 +85,9 @@ extension SION : CustomStringConvertible {
     }
     public var description:String {
         return self.toString()
+    }
+    public var debugDescription:String {
+        return self.toString(space:2)
     }
     public func toJSON(depth d:Int, separator s:String, terminator t:String, sortedKey:Bool=false)->String {
         let i = Swift.String(repeating:s, count:d)
@@ -629,6 +632,35 @@ extension SION.SIONError : CustomStringConvertible {
         case .keyNonexistent(let k):    return "key \"\(k)\" does not exist"
         case .nsError(let e):           return "\(e)"
         }
+    }
+}
+extension SION {
+    var yaml:String {
+        return self.walk(depth:0, collect:{ node, pairs, depth in
+            let indent = Swift.String(repeating:"  ", count:depth)
+            var result = ""
+            switch node.type {
+            case .array:
+                guard !pairs.isEmpty else { return "[]"}
+                result = pairs.map{ "- " + $0.1}.map{indent + $0}.joined(separator: "\n")
+            case .dictionary:
+                guard !pairs.isEmpty else { return "{}"}
+                result = pairs.sorted{ $0.0.description < $1.0.description }.map{
+                    let k = $0.0.string ?? $0.0.description
+                    let q = k.rangeOfCharacter(from: .newlines) != nil
+                    return (q ? k.debugDescription : k) + ": "  + $0.1
+                }.map{indent + $0}.joined(separator: "\n")
+            default:
+                break   // never reaches here
+            }
+            return "\n" + result
+        },visit:{
+            if $0.isNull { return  "~" }
+            if let s = $0.string {
+                return s.rangeOfCharacter(from: .newlines) == nil ? s : s.debugDescription
+            }
+            return $0.description
+        })
     }
 }
 
