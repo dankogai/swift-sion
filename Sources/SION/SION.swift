@@ -25,6 +25,7 @@ public indirect enum SION:Equatable {
     case Bool(Bool)
     case Int(Int)
     case Double(Double)
+    case Data(Data)
     case String(String)
     case Array([Value])
     case Dictionary([Key:Value])
@@ -38,6 +39,7 @@ extension SION : Hashable {
         case .Int(let v):           return v.hashValue
         case .Double(let v):        return v.hashValue
         case .String(let v):        return v.hashValue
+        case .Data(let v):          return v.hashValue
         case .Array(let v):         return "\(v)".hashValue // will be fixed in Swift 4.2
         case .Dictionary(let v):    return "\(v)".hashValue // will be fixed in Swift 4.2
         }
@@ -54,6 +56,7 @@ extension SION : CustomStringConvertible {
         case .Int(let v):       return v.description
         case .Double(let v):    return v.description
         case .String(let v):    return v.debugDescription
+        case .Data(let v):      return ".Data(\"" + v.base64EncodedString() + "\")"
         case .Array(let a):
             guard !a.isEmpty else { return "[]" }
             return "[" + t
@@ -90,6 +93,7 @@ extension SION : CustomStringConvertible {
         case .Int(let v):       return v.description
         case .Double(let v):    return v.description
         case .String(let v):    return v.debugDescription
+        case .Data(let v):      return "\"" + v.base64EncodedString() + "\""
         case .Array(let a):
             guard !a.isEmpty else { return "[]" }
             return "[" + t
@@ -117,6 +121,12 @@ extension SION : CustomStringConvertible {
     }
     public var json:String {
         return self.toJSON()
+    }
+}
+extension Data:ExpressibleByStringLiteral {
+    public typealias StringLiteralType = String
+    public init(stringLiteral value:StringLiteralType) {
+        self.init(base64Encoded:value, options:[.ignoreUnknownCharacters])!
     }
 }
 // Inits
@@ -229,16 +239,17 @@ extension SION {
 }
 extension SION {
     public enum ContentType {
-        case error, null, bool, int, double, string, array, dictionary
+        case error, null, bool, int, double, string, data, array, dictionary
     }
     public var type:ContentType {
         switch self {
         case .Error(_):         return .error
-        case .Nil:             return .null
+        case .Nil:              return .null
         case .Bool(_):          return .bool
         case .Int(_):           return .int
         case .Double(_):        return .double
         case .String(_):        return .string
+        case .Data(_):          return .data
         case .Array(_):         return .array
         case .Dictionary(_):    return .dictionary
         }
@@ -394,8 +405,9 @@ extension SION {
         let s_double = "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)|(?:[1-9][0-9]*|0)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?)"
         let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
         let s_string = "\"(.*?)(?<!\\\\)\""
+        let s_data   = ".Data\\(\"(.*?)(?<!\\\\)\"\\)"
         func tokenize(_ string:Swift.String)->[Swift.String] {
-            let s_all = [ "\\[", "\\]", ":", ",", s_null, s_bool, s_double, s_int, s_string].joined(separator:"|")
+            let s_all = [ "\\[", "\\]", ":", ",", s_null, s_bool, s_double, s_int, s_string, s_data].joined(separator:"|")
             let re = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
             var tokens = [Swift.String]()
             re.enumerateMatches(in: string, range:NSRange(0..<string.count)) { cr, _, _ in
@@ -438,12 +450,22 @@ extension SION {
             if s.last  != "\"" { return nil }
             return SION(json:Swift.String(s))
         }
+        func toData(_ s:String)->SION? {
+            //              0123456
+            guard s.hasPrefix(".Data(\"") else { return nil }
+            guard s.hasSuffix("\")")      else { return nil }
+            var ss = s
+            ss.removeFirst(7)
+            ss.removeLast(2)
+            // print(ss)
+            let data = Foundation.Data(base64Encoded:ss, options:[.ignoreUnknownCharacters])!
+            return SION.Data(data)
+        }
         func toElement(_ s:Swift.String)->SION {
-            return s == "nil" ? .Nil : toBool(s) ?? toInt(s) ?? toDouble(s) ?? toString(s) ?? .Error(.notASIONType)
+            return s == "nil" ? .Nil
+                : toBool(s) ?? toInt(s) ?? toDouble(s) ?? toString(s) ?? toData(s) ?? .Error(.notASIONType)
         }
         func toCollection(_ tokens:[Swift.String])->SION {
-            // print(tokens)
-
             let isDictionary = 2 < tokens.count && tokens[2] == ":" || tokens[1] == ":"
             var elems = [SION]()
             var i = 1, d = 0
@@ -481,12 +503,10 @@ extension SION {
             }
         }
         let tokens = tokenize(string)
-//        print(tokens)
         if tokens.isEmpty {
             return .Error(.notASIONType)
         }
         if tokens.count == 1 {
-            print(tokens[0])
             return toElement(tokens[0])
         }
         if tokens[0] == "[" {
@@ -501,7 +521,7 @@ extension SION {
 extension SION : Codable {
     private static let codableTypes:[Codable.Type] = [
         [Key:Value].self, [Value].self,
-        Swift.String.self,
+        Foundation.Data.self, Swift.String.self,
         Swift.Bool.self,
         Swift.UInt.self, Swift.Int.self,
         Swift.Double.self, Swift.Float.self,
@@ -525,6 +545,7 @@ extension SION : Codable {
                 case let t as Float.Type:       if let v = try? c.decode(t) { self = .Double(Swift.Double(v)); return }
                 case let t as Double.Type:      if let v = try? c.decode(t) { self = .Double(v); return }
                 case let t as Swift.String.Type:if let v = try? c.decode(t) { self = .String(v); return }
+                case let t as Foundation.Data.Type: if let v = try? c.decode(t) { self = .Data(v); return }
                 case let t as [Value].Type:     if let v = try? c.decode(t) { self = .Array(v); return }
                 case let t as [Key:Value].Type: if let v = try? c.decode(t) { self = .Dictionary(v); return }
                 default: break
@@ -544,6 +565,7 @@ extension SION : Codable {
         case .Int(let v):       try c.encode(v)
         case .Double(let v):    try c.encode(v)
         case .String(let v):    try c.encode(v)
+        case .Data(let v):      try c.encode(v)
         case .Array(let v):     try c.encode(v)
         case .Dictionary(let v):    try c.encode(v)
         default:
