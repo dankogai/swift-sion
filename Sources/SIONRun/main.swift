@@ -11,14 +11,13 @@ var sion:SION = [
     "dictionary":   [
         "nil":nil, "bool":false, "int":0, "double":0.0, "string":"","array":[], "object":[:]
     ],
-    "url":"https://github.com/dankogai/",
-    false:true,
-    0:1,
-    []:[],
-    [:]:[:]
+    "url":"https://github.com/dankogai/"
 ]
+print(try sion.jsonObject() )
 sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 sion["date"] = .Date(0.0)
 debugPrint(sion)
 print(sion.yaml)
-print(SION.parse(sion.debugDescription) == sion)
+print("SION.parse(sion.debugDescription) == sion //", SION.parse(sion.debugDescription) == sion)
+let plistdata = try! sion.pick{ !$0.isNull }.propertyList(format: .xml)
+print(String(data:plistdata, encoding:.utf8)!)

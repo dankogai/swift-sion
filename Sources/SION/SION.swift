@@ -204,7 +204,9 @@ extension SION {
         case .Bool(let v):      return v
         case .Int(let v):       return v
         case .Double(let v):    return v
+        case .Date(let v):      return v
         case .String(let v):    return v
+        case .Data(let v):      return v
         case .Array(let a):     return a.map{ $0.nsObject }
         case .Dictionary(let o):
             let k = o.keys.map   { $0.nsObject as! NSCopying }
@@ -240,8 +242,8 @@ extension SION {
             self = .Error(.nsError(error as NSError))
         }
     }
-    public var jsonObject:Any {
-        return try! JSONSerialization.jsonObject(with:self.json.data(using: .utf8)!, options:[.allowFragments])
+    public func jsonObject() throws -> Any {
+        return try JSONSerialization.jsonObject(with:self.json.data(using: .utf8)!, options:[.allowFragments])
     }
     public func propertyList(format:PropertyListSerialization.PropertyListFormat = .binary) throws -> Data {
         return try PropertyListSerialization.data(fromPropertyList: self.nsObject, format: format, options:0)
