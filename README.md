@@ -297,7 +297,7 @@ As a getter they are optional which returns `nil` when the type mismaches.
 
 ```swift
 sion[1].bool    // Optional(true)
-sion[1].number  // nil
+sion[1].int     // nil
 ```
 
 Therefore, you can mutate like so:
