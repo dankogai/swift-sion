@@ -25,8 +25,9 @@ public indirect enum SION:Equatable {
     case Bool(Bool)
     case Int(Int)
     case Double(Double)
-    case Data(Data)
+    case Date(Date)
     case String(String)
+    case Data(Data)
     case Array([Value])
     case Dictionary([Key:Value])
 }
@@ -38,6 +39,7 @@ extension SION : Hashable {
         case .Bool(let v):          return v.hashValue
         case .Int(let v):           return v.hashValue
         case .Double(let v):        return v.hashValue
+        case .Date(let v):          return v.hashValue
         case .String(let v):        return v.hashValue
         case .Data(let v):          return v.hashValue
         case .Array(let v):         return "\(v)".hashValue // will be fixed in Swift 4.2
@@ -55,6 +57,7 @@ extension SION : CustomStringConvertible {
         case .Bool(let v):      return v.description
         case .Int(let v):       return v.description
         case .Double(let v):    return v.description
+        case .Date(let v):      return ".Date(" + v.timeIntervalSince1970.description + ")"
         case .String(let v):    return v.debugDescription
         case .Data(let v):      return ".Data(\"" + v.base64EncodedString() + "\")"
         case .Array(let a):
@@ -92,6 +95,7 @@ extension SION : CustomStringConvertible {
         case .Bool(let v):      return v.description
         case .Int(let v):       return v.description
         case .Double(let v):    return v.description
+        case .Date(let v):      return v.description
         case .String(let v):    return v.debugDescription
         case .Data(let v):      return "\"" + v.base64EncodedString() + "\""
         case .Array(let a):
@@ -127,6 +131,12 @@ extension Data:ExpressibleByStringLiteral {
     public typealias StringLiteralType = String
     public init(stringLiteral value:StringLiteralType) {
         self.init(base64Encoded:value, options:[.ignoreUnknownCharacters])!
+    }
+}
+extension Date:ExpressibleByFloatLiteral {
+    public typealias FloatLiteralType = Double
+    public init(floatLiteral value:FloatLiteralType) {
+        self.init(timeIntervalSince1970: value)
     }
 }
 // Inits
@@ -227,9 +237,9 @@ extension SION {
             self = .Error(.nsError(error as NSError))
         }
     }
-    public var data:Data {
-        return self.description.data(using:.utf8)!
-    }
+//    public var data:Data {
+//        return self.description.data(using:.utf8)!
+//    }
     public var jsonObject:Any {
         return try! JSONSerialization.jsonObject(with:self.json.data(using: .utf8)!, options:[.allowFragments])
     }
@@ -239,7 +249,7 @@ extension SION {
 }
 extension SION {
     public enum ContentType {
-        case error, null, bool, int, double, string, data, array, dictionary
+        case error, null, bool, int, double, date, string, data, array, dictionary
     }
     public var type:ContentType {
         switch self {
@@ -248,6 +258,7 @@ extension SION {
         case .Bool(_):          return .bool
         case .Int(_):           return .int
         case .Double(_):        return .double
+        case .Date(_):          return .date
         case .String(_):        return .string
         case .Data(_):          return .data
         case .Array(_):         return .array
@@ -268,9 +279,17 @@ extension SION {
         get { switch self { case .Double(let v):return v default: return nil } }
         set { self = .Double(newValue!) }
     }
+    public var date:Date? {
+        get { switch self { case .Date(let v):return v default: return nil } }
+        set { self = .Date(newValue!) }
+    }
     public var string:String? {
         get { switch self { case .String(let v):return v default: return nil } }
         set { self = .String(newValue!) }
+    }
+    public var data:Data? {
+        get { switch self { case .Data(let v):return v default: return nil } }
+        set { self = .Data(newValue!) }
     }
     public var array:[Value]? {
         get { switch self { case .Array(let v): return v default: return nil } }
@@ -404,10 +423,11 @@ extension SION {
         let s_bool = "true|false"
         let s_double = "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)|(?:[1-9][0-9]*|0)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?)"
         let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
+        let s_date   = ".Date\\([0-9\\.]+?\\)"
         let s_string = "\"(.*?)(?<!\\\\)\""
         let s_data   = ".Data\\(\"(.*?)(?<!\\\\)\"\\)"
         func tokenize(_ string:Swift.String)->[Swift.String] {
-            let s_all = [ "\\[", "\\]", ":", ",", s_null, s_bool, s_double, s_int, s_string, s_data].joined(separator:"|")
+            let s_all = [ "\\[", "\\]", ":", ",", s_null, s_bool, s_date, s_double, s_int, s_data, s_string].joined(separator:"|")
             let re = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
             var tokens = [Swift.String]()
             re.enumerateMatches(in: string, range:NSRange(0..<string.count)) { cr, _, _ in
@@ -445,6 +465,20 @@ extension SION {
             }
             return .Int(sign == "-" ? -int : +int)
         }
+        func toDate(_ s:String)->SION? {
+            //                 0123456
+            guard s.hasPrefix(".Date(") else { return nil }
+            guard s.hasSuffix(")")      else { return nil }
+            var ss = s
+            ss.removeFirst(7)
+            ss.removeLast(2)
+            if let d = Swift.Double(ss) {
+                let date = Foundation.Date(timeIntervalSince1970: d)
+                return SION.Date(date)
+            }
+            return nil
+        }
+
         func toString(_ s:String)->SION? {
             if s.first != "\"" { return nil }
             if s.last  != "\"" { return nil }
@@ -458,12 +492,14 @@ extension SION {
             ss.removeFirst(7)
             ss.removeLast(2)
             // print(ss)
-            let data = Foundation.Data(base64Encoded:ss, options:[.ignoreUnknownCharacters])!
-            return SION.Data(data)
+            if let data = Foundation.Data(base64Encoded:ss, options:[.ignoreUnknownCharacters]) {
+                return SION.Data(data)
+            }
+            return nil
         }
         func toElement(_ s:Swift.String)->SION {
             return s == "nil" ? .Nil
-                : toBool(s) ?? toInt(s) ?? toDouble(s) ?? toString(s) ?? toData(s) ?? .Error(.notASIONType)
+                : toBool(s) ?? toInt(s) ?? toDouble(s) ?? toDate(s) ?? toString(s) ?? toData(s) ?? .Error(.notASIONType)
         }
         func toCollection(_ tokens:[Swift.String])->SION {
             let isDictionary = 2 < tokens.count && tokens[2] == ":" || tokens[1] == ":"
@@ -518,7 +554,7 @@ extension SION : Codable {
         Foundation.Data.self, Swift.String.self,
         Swift.Bool.self,
         Swift.UInt.self, Swift.Int.self,
-        Swift.Double.self, Swift.Float.self,
+        Foundation.Date.self, Swift.Double.self, Swift.Float.self,
         UInt64.self, UInt32.self, UInt16.self, UInt8.self,
         Int64.self,  Int32.self,  Int16.self,  Int8.self,
     ]
@@ -538,6 +574,7 @@ extension SION : Codable {
                 case let t as UInt64.Type:      if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
                 case let t as Float.Type:       if let v = try? c.decode(t) { self = .Double(Swift.Double(v)); return }
                 case let t as Double.Type:      if let v = try? c.decode(t) { self = .Double(v); return }
+                case let t as Foundation.Date.Type: if let v = try? c.decode(t) { self = .Date(v); return }
                 case let t as Swift.String.Type:if let v = try? c.decode(t) { self = .String(v); return }
                 case let t as Foundation.Data.Type: if let v = try? c.decode(t) { self = .Data(v); return }
                 case let t as [Value].Type:     if let v = try? c.decode(t) { self = .Array(v); return }
@@ -558,6 +595,7 @@ extension SION : Codable {
         case .Bool(let v):      try c.encode(v)
         case .Int(let v):       try c.encode(v)
         case .Double(let v):    try c.encode(v)
+        case .Date(let v):      try c.encode(v)
         case .String(let v):    try c.encode(v)
         case .Data(let v):      try c.encode(v)
         case .Array(let v):     try c.encode(v)
