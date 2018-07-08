@@ -3,6 +3,19 @@
 import SION
 import Foundation
 
+var sion:SION = [
+    0:0,
+    1:.Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+    2:.String("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+    3:.Date(Date()),
+    4:.Double(0.0)
+]
+//sion.dictionary![2] = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+debugPrint(sion)
+print(SION.parse(sion.description))
+
+var s = SION([:])
+
 //let re = try! NSRegularExpression(pattern:"([+-]?)(0(:?x[0-9a-fA-F]+|o[0-7]+|b[01]+)|[0-9]+)")
 //let s = "+01234, -56789, 0xdeadbeef, 0o777, 0b010101"
 //re.enumerateMatches(in: s, range:NSRange(0..<s.count)) { cr, _, _ in
@@ -27,22 +40,28 @@ import Foundation
 //    //print(a, b, c)
 //}
 
-SION.parse("\"abcd\"")
-import SION
 
-let sion:SION = [
-    "bool":     true,
-    "int":      -42,
-    "double":   42.195,
-    "string":   "漢字、カタカナ、ひらがなと\"引用符\"の入ったstring😇",
-    "array":    [true, 1, "one", [1], ["one":1]],
-    "dictionary":   [
-        "bool":false, "number":0, "string":"" ,"array":[], "object":[:]
-    ],
-    "url":"https://github.com/dankogai/",
-    false:true,
-    0:1
-]
+//import SION
+//
+//let sion:SION = [
+//    "nil":      nil,
+//    "bool":     true,
+//    "int":      -42,
+//    "double":   42.195,
+//    "string":   "漢字、カタカナ、ひらがなと\"引用符\"の入ったstring😇",
+//    "array":    [nil, true, 1, "one", [1], ["one":1]],
+//    "dictionary":   [
+//        "nil":nil, "bool":false, "number":0, "string":"" ,"array":[], "object":[:]
+//    ],
+//    "url":"https://github.com/dankogai/",
+//    false:true,
+//    0:1
+//]
+////print(sion.description)
+//SION.parse(sion.description)
+//let t = SION.tokenize(sion.description)
+//t.map{ print($0) }
+
 //
 //print(sion)
 //print(sion.toJSON(space:2))

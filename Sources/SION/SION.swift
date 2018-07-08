@@ -16,6 +16,7 @@ public indirect enum SION:Equatable {
         case indexOutOfRange(SION.Index)
         case keyNonexistent(SION.Key)
         case nsError(NSError)
+        case error(Swift.String)
     }
     public typealias Key    = SION
     public typealias Value  = SION
@@ -98,7 +99,7 @@ extension SION : CustomStringConvertible, CustomDebugStringConvertible {
         case .Bool(let v):      return v.description
         case .Int(let v):       return v.description
         case .Double(let v):    return v.description
-        case .Date(let v):      return v.description
+        case .Date(let v):      return v.timeIntervalSince1970.description
         case .String(let v):    return v.debugDescription
         case .Data(let v):      return "\"" + v.base64EncodedString() + "\""
         case .Array(let a):
@@ -184,6 +185,8 @@ extension SION {
             }
         case nil:               self = .Nil
         case let a as String:   self = .String(a)
+        case let a as Date:     self = .Date(a)
+        case let a as Data:     self = .Data(a)
         case let a as [Any?]:   self = .Array(a.map{ SION(nsObject:$0) })
         case let a as [Key:Any?]:
             var o = [Key:Value]()
@@ -245,6 +248,15 @@ extension SION {
     public func jsonObject() throws -> Any {
         return try JSONSerialization.jsonObject(with:self.json.data(using: .utf8)!, options:[.allowFragments])
     }
+    public init(propertyList data:Data, format:PropertyListSerialization.PropertyListFormat = .binary) {
+        var fmt = format
+        do {
+            let nsObject = try PropertyListSerialization.propertyList(from:data, format:&fmt)
+            self.init(nsObject:nsObject)
+        } catch {
+            self = .Error(.error("\(error)"))
+        }
+    }
     public func propertyList(format:PropertyListSerialization.PropertyListFormat = .binary) throws -> Data {
         return try PropertyListSerialization.data(fromPropertyList: self.nsObject, format: format, options:0)
     }
@@ -267,7 +279,7 @@ extension SION {
         case .Dictionary(_):    return .dictionary
         }
     }
-    public var isNull:Bool          { return type == .null }
+    public var isNil:Bool           { return type == .null }
     public var error:SIONError?     { switch self { case .Error(let v): return v default: return nil } }
     public var bool:Bool? {
         get { switch self { case .Bool(let v):  return v default: return nil } }
@@ -546,7 +558,7 @@ extension SION {
             : .Error(.notASIONType)
     }
     /// initialize from string
-    init(string:String) {
+    public init(string:String) {
         self = SION.parse(string)
     }
 }
@@ -589,7 +601,7 @@ extension SION : Codable {
     }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
-        if self.isNull {
+        if self.isNil {
             try c.encodeNil()
             return
         }
@@ -609,7 +621,7 @@ extension SION : Codable {
 }
 extension SION.SIONError : CustomStringConvertible {
     public enum ErrorType {
-        case notASIONObject, notIterable, notSubscriptable, indexOutOfRange, keyNonexistent, nsError
+        case notASIONObject, notIterable, notSubscriptable, indexOutOfRange, keyNonexistent, nsError, error
     }
     public var type:ErrorType {
         switch self {
@@ -619,9 +631,11 @@ extension SION.SIONError : CustomStringConvertible {
         case .indexOutOfRange(_):   return .indexOutOfRange
         case .keyNonexistent(_):    return .keyNonexistent
         case .nsError(_):           return .nsError
+        case .error(_):             return .error
         }
     }
     public var nsError:NSError? { switch self { case .nsError(let v) : return v default : return nil } }
+    public var error:String?    { switch self { case .error(let v) : return v default : return nil } }
     public var description:String {
         switch self {
         case .notASIONType:             return "not a SION Type"
@@ -630,6 +644,7 @@ extension SION.SIONError : CustomStringConvertible {
         case .indexOutOfRange(let i):   return "index \(i) is out of range"
         case .keyNonexistent(let k):    return "key \"\(k)\" does not exist"
         case .nsError(let e):           return "\(e)"
+        case .error(let e):             return "\(e)"
         }
     }
 }
@@ -654,7 +669,7 @@ extension SION {
             }
             return "\n" + result
         },visit:{
-            if $0.isNull { return  "~" }
+            if $0.isNil { return  "~" }
             if let s = $0.string {
                 return s.rangeOfCharacter(from: .newlines) == nil ? s : s.debugDescription
             }

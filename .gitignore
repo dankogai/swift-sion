@@ -43,7 +43,7 @@ Package.resolved
 # .xcodeproj is ignored. use `swift package generate-xcodeproj`
 *.xcodeproj
 # ignore this directory for scripts/ios-prep.sh
-iOS/JSON.playground/Sources
+iOS/SION.playground/Sources
 
 # CocoaPods
 #

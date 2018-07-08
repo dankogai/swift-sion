@@ -1,37 +1,24 @@
 //: [Previous](@previous)
 
-import JSON
+import SION
 
-let json:JSON = [
-    "null":     nil,
+var sion:SION = [
+    "nil":      nil,
     "bool":     true,
     "int":      -42,
     "double":   42.195,
-    "string":   "漢字、カタカナ、ひらがなと\"引用符\"の入ったstring😇",
-    "array":    [nil, true, 1, "one", [1], ["one":1]],
-    "object":   [
-        "null":nil, "bool":false, "number":0, "string":"" ,"array":[], "object":[:]
+    "string":   "漢字、カタカナ、ひらがなの入ったstring😇",
+    "array":    [nil, true, 1, 1.0, "one", [1], ["one":1.0]],
+    "dictionary":   [
+        "nil":nil, "bool":false, "int":0, "double":0.0, "string":"","array":[], "object":[:]
     ],
     "url":"https://github.com/dankogai/"
 ]
+sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
+sion["date"] = .Date(0x0p+0)
+sion["self"] = sion
+debugPrint(sion)
 
-let str = json.description
-
-JSON(urlString:"http://api.github.com")
-JSON(string:"true")
-json["foo"]
-
-//for (k, v) in json["object"] {
-//    print(k.key!, v)
-//}
-//for (k, v) in json["array"] {
-//    print(k.index!, v)
-//}
-//for (k, v) in json["bool"] {
-//    print(v)
-//}
-//JSON(["distance":42.195]) == JSON(string: "{\"distance\":42.195}")
-
-print(json.toString(space:2))
-//print(json.prettyPrinted)
-//: [Next](@next)
+//debugPrint(SION(jsonUrlString:"http://api.github.com"))
+//JSON(string:"true")
+//sion["foo"]
