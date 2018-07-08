@@ -56,8 +56,8 @@ extension SION : CustomStringConvertible, CustomDebugStringConvertible {
         case .Nil:              return "nil"
         case .Bool(let v):      return v.description
         case .Int(let v):       return v.description
-        case .Double(let v):    return v.description
-        case .Date(let v):      return ".Date(" + v.timeIntervalSince1970.description + ")"
+        case .Double(let v):    return Swift.String(format:"%a", v)
+        case .Date(let v):      return ".Date(" + Swift.String(format:"%a", v.timeIntervalSince1970) + ")"
         case .String(let v):    return v.debugDescription
         case .Data(let v):      return ".Data(\"" + v.base64EncodedString() + "\")"
         case .Array(let a):
@@ -240,9 +240,6 @@ extension SION {
             self = .Error(.nsError(error as NSError))
         }
     }
-//    public var data:Data {
-//        return self.description.data(using:.utf8)!
-//    }
     public var jsonObject:Any {
         return try! JSONSerialization.jsonObject(with:self.json.data(using: .utf8)!, options:[.allowFragments])
     }
@@ -426,7 +423,7 @@ extension SION {
         let s_bool = "true|false"
         let s_double = "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)|(?:[1-9][0-9]*|0)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?)"
         let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
-        let s_date   = ".Date\\([0-9\\.]+?\\)"
+        let s_date   = ".Date\\(" + s_double + "\\)"
         let s_string = "\"(.*?)(?<!\\\\)\""
         let s_data   = ".Data\\(\"(.*?)(?<!\\\\)\"\\)"
         func tokenize(_ string:Swift.String)->[Swift.String] {
@@ -473,8 +470,8 @@ extension SION {
             guard s.hasPrefix(".Date(") else { return nil }
             guard s.hasSuffix(")")      else { return nil }
             var ss = s
-            ss.removeFirst(7)
-            ss.removeLast(2)
+            ss.removeFirst(6)
+            ss.removeLast(1)
             if let d = Swift.Double(ss) {
                 let date = Foundation.Date(timeIntervalSince1970: d)
                 return SION.Date(date)
@@ -502,7 +499,7 @@ extension SION {
         }
         func toElement(_ s:Swift.String)->SION {
             return s == "nil" ? .Nil
-                : toBool(s) ?? toInt(s) ?? toDouble(s) ?? toDate(s) ?? toString(s) ?? toData(s) ?? .Error(.notASIONType)
+                : toBool(s) ?? toInt(s) ?? toDate(s) ?? toDouble(s) ?? toData(s) ?? toString(s) ?? .Error(.notASIONType)
         }
         func toCollection(_ tokens:[Swift.String])->SION {
             let isDictionary = 2 < tokens.count && tokens[2] == ":" || tokens[1] == ":"
@@ -577,11 +574,11 @@ extension SION : Codable {
                 case let t as UInt64.Type:      if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
                 case let t as Float.Type:       if let v = try? c.decode(t) { self = .Double(Swift.Double(v)); return }
                 case let t as Double.Type:      if let v = try? c.decode(t) { self = .Double(v); return }
-                case let t as Foundation.Date.Type: if let v = try? c.decode(t) { self = .Date(v); return }
                 case let t as Swift.String.Type:if let v = try? c.decode(t) { self = .String(v); return }
-                case let t as Foundation.Data.Type: if let v = try? c.decode(t) { self = .Data(v); return }
                 case let t as [Value].Type:     if let v = try? c.decode(t) { self = .Array(v); return }
                 case let t as [Key:Value].Type: if let v = try? c.decode(t) { self = .Dictionary(v); return }
+                case let t as Foundation.Date.Type: if let v = try? c.decode(t) { self = .Date(v); return }
+                case let t as Foundation.Data.Type: if let v = try? c.decode(t) { self = .Data(v); return }
                 default: break
                 }
             }
@@ -602,7 +599,7 @@ extension SION : Codable {
         case .String(let v):    try c.encode(v)
         case .Data(let v):      try c.encode(v)
         case .Array(let v):     try c.encode(v)
-        case .Dictionary(let v):    try c.encode(v)
+        case .Dictionary(let v):try c.encode(v)
         default:
             break
         }
@@ -635,7 +632,7 @@ extension SION.SIONError : CustomStringConvertible {
     }
 }
 extension SION {
-    var yaml:String {
+    public var yaml:String {
         return self.walk(depth:0, collect:{ node, pairs, depth in
             let indent = Swift.String(repeating:"  ", count:depth)
             var result = ""

@@ -4,34 +4,40 @@ import XCTest
 import Foundation
 
 final class SIONTests: XCTestCase {
-//    let SION0:SION = [
-//        "null":     nil,
-//        "bool":     true,
-//        "int":      -42,
-//        "double":   42.1953125,
-//        "String":   "漢字、カタカナ、ひらがなと\"引用符\"の入ったstring😇",
-//        "array":    [nil, true, 1, "one", [1], ["one":1]],
-//        "object":   [
-//            "null":nil, "bool":false, "number":0, "string":"" ,"array":[], "object":[:]
-//        ],
-//        "url":"https://github.com/dankogai/"
-//    ]
-//    func testBasic() {
-//        let str = SION0.description
-//        XCTAssertEqual(SION(string:str), SION0)
-//    }
+    let sion0:SION = [
+        "null":     nil,
+        "bool":     true,
+        "int":      -42,
+        "double":   42.1953125,
+        "String":   "漢字、カタカナ、ひらがなと\"引用符\"の入ったstring😇",
+        "array":    [nil, true, 1, "one", [1], ["one":1]],
+        "dictionary":   [
+            "null":nil, "bool":false, "number":0, "string":"" ,"array":[], "object":[:]
+        ],
+        "url":"https://github.com/dankogai/"
+    ]
+    func testBasic() {
+        let str0 = sion0.description
+        XCTAssertEqual(SION(string:str0), sion0)
+        var sion1 = sion0
+        sion1["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
+        var str1 = sion1.description
+        XCTAssertEqual(SION(string:str1), sion1)
+        sion1["date"] = .Date(0.0)
+        str1 = sion1.description
+        XCTAssertEqual(SION(string:str1), sion1)
+    }
 //    func testCodable() {
-//        let data1 = try! SIONEncoder().encode(SION0)
-//        let SION1 = try! SIONDecoder().decode(SION.self, from:data1)
-//        XCTAssertEqual(SION1, SION0)
-//        
+//        let data1 = try! JSONEncoder().encode(sion0)
+//        let sion1 = try! JSONDecoder().decode(SION.self, from:data1)
+//        XCTAssertEqual(sion1, sion0)
 //        struct Point:Hashable, Codable { let (x, y):(Int, Int) }
-//        let data2 = try! SIONEncoder().encode(Point(x:3, y:4))
-//        let SION2:SION = ["x":3, "y":4]
-//        XCTAssertEqual(try! SIONDecoder().decode(SION.self, from:data2), SION2)
+//        let data2 = try! JSONEncoder().encode(Point(x:3, y:4))
+//        let sion2:SION = ["x":3, "y":4]
+//        XCTAssertEqual(try! JSONDecoder().decode(SION.self, from:data2), sion2)
 //    }
-//    static var allTests = [
-//        ("testBasic",   testBasic),
+    static var allTests = [
+        ("testBasic",   testBasic),
 //        ("testCodable", testCodable),
-//    ]
+    ]
 }
