@@ -436,20 +436,23 @@ extension SION {
         let s_null = "nil"
         let s_bool = "true|false"
         let s_double = "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)"
-            + "|" + "(?:[1-9][0-9]*|0)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?)"
+            + "|" + "(?:[1-9][0-9]*)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?|0\\.0+)"
         let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
-        let s_date   = ".Date\\(" + s_double + "\\)"
-        let s_string = "\"(.*?)(?<!\\\\)\""
-        let s_base64 = "(?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?"
-        let s_data   = ".Data\\(\"" + s_base64 + "\"\\)"
+        let s_date    = ".Date\\(" + s_double + "\\)"
+        let s_string  = "\"(.*?)(?<!\\\\)\""
+        let s_base64  = "(?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?"
+        let s_data    = ".Data\\(\"" + s_base64 + "\"\\)"
+        let s_comment = "//.*?(?:\n|\r|\r\n)"
         func tokenize(_ string:Swift.String)->[Swift.String] {
             let s_all = [ "\\[", "\\]", ":", ",",
-                          s_null, s_bool, s_date, s_double, s_int, s_data, s_string
+                          s_null, s_bool, s_date, s_double, s_int, s_data, s_string, s_comment
                 ].joined(separator:"|")
             let re = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
             var tokens = [Swift.String]()
             re.enumerateMatches(in: string, range:NSRange(0..<string.count)) { cr, _, _ in
-                tokens.append( Swift.String(string[Range(cr!.range, in:string)!]) )
+                let token = Swift.String(string[Range(cr!.range, in:string)!])
+                if token.hasPrefix("//") { return } // ignore comment
+                tokens.append( token )
             }
             return tokens
         }

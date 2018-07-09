@@ -36,6 +36,7 @@ This module is both an introduction and a reference implementation of `SION`, a 
   * support `Date`
   * non-`String` keys in `Dictionary`
   * `Int` and `Double` distinctively, not `Number`.  Therefore you can exchange 64-bit integers losslessly.
+  * // comment support!
 * Roughly equvalent to [MsgPack] in terms of capability.
   * [MsgPack] is a binary serialization while `SION` is a text serialization.
 
@@ -105,19 +106,19 @@ or add `"data"` later.
 ```swift
 let sionStr = """
 [
-    "array" : [
+    "array": [
         nil,
         true,
-        1,
-        0x1p+0,
+        1,      // Int
+        1.0,    // Double
         "one",
         [1],
         ["one" : 1.0]
     ],
-    "bool" : true,
-    "data" : .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
-    "date" : .Date(0x0p+0),
-    "dictionary" : [
+    "bool": true,
+    "data": .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+    "date": .Date(0x0p+0),
+    "dictionary": [
         "array" : [],
         "bool" : false,
         "double" : 0x0p+0,
@@ -126,11 +127,11 @@ let sionStr = """
         "object" : [:],
         "string" : ""
     ],
-    "double" : 0x1.518f5c28f5c29p+5,
-    "int" : -42,
-    "nil" : nil,
-    "string" : "漢字、カタカナ、ひらがなの入ったstring😇",
-    "url" : "https://github.com/dankogai/"
+    "double": 0x1.518f5c28f5c29p+5, // double in hex
+    "int": -42,                     // int in hex
+    "nil": nil,
+    "string": "漢字、カタカナ、ひらがなの入ったstring😇",
+    "url": "https://github.com/dankogai/"
 ]
 """
 SION(string:sionStr)
