@@ -61,7 +61,7 @@ This module is both an introduction and a reference implementation of `SION`, a 
 
 ### Initialization
 
-You can build SION directly as a literal…
+You can build SION directly as a literal.
 
 ```swift
 var sion:SION = [
@@ -98,10 +98,11 @@ var sion:SION = [
     "string": .String("漢字、カタカナ、ひらがなの入ったstring😇"),
     "data": .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
 ]
+```
 
 or add `"data"` later.
 
-…or String…
+#### from `String`
 
 ```swift
 let sionStr = """
@@ -137,7 +138,7 @@ let sionStr = """
 SION(string:sionStr)
 ```
 
-…or a [JSON] string or JSON-emitting URL…
+#### from [JSON] string or JSON-emitting URL…
 
 ```swift
 let jsonStr = """
@@ -176,7 +177,7 @@ SION(json:jsonStr)
 SION(jsonUrlString:"https://api.github.com")
 ```
 
-…or [Property List]…
+#### from [Property List]
 
 [Property List]: https://en.wikipedia.org/wiki/Property_list
 
