@@ -47,11 +47,11 @@ This module is both an introduction and a reference implementation of `SION`, a 
 | `Nil`           | ✔︎ | ✔︎ | ✔︎ | ❌ | plist: .binary only |
 | `Bool`          | ✔︎ | ✔︎ | ✔︎ | ✔︎ |
 | `Int`           | ✔︎ | ✔︎ | ❌ | ✔︎ | 64bit |
-| `Double`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ | JSON:Number |
+| `Double`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ | JSON's Number |
 | `String`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ | utf-8 encoded |
 | `Data`          | ✔︎ | ✔︎ | ❌ | ✔︎ | binary blob |
-| `Date`          | ✔︎ | ✔︎ | ❌ | ✔︎ |
-| `[Self]`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ |
+| `Date`          | ✔︎ | ✔︎ | ❌ | ✔︎ | .timeIntervalSince1970 in `Double` |
+| `[Self]`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ | aka Array |
 | `[String:Self]` | ✔︎ | ✔︎ | ✔︎ | ✔︎ | aka Object, Map…|
 | `[Self:Self]`   | ✔︎ | ✔︎ | ❌ | ❌ |non-`String` keys|
 
