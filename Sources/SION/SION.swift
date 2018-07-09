@@ -435,13 +435,17 @@ extension SION {
     public static func parse(_ string:Swift.String)->SION {
         let s_null = "nil"
         let s_bool = "true|false"
-        let s_double = "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)|(?:[1-9][0-9]*|0)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?)"
+        let s_double = "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)"
+            + "|" + "(?:[1-9][0-9]*|0)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?)"
         let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
         let s_date   = ".Date\\(" + s_double + "\\)"
         let s_string = "\"(.*?)(?<!\\\\)\""
-        let s_data   = ".Data\\(\"(.*?)(?<!\\\\)\"\\)"
+        let s_base64 = "(?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?"
+        let s_data   = ".Data\\(\"" + s_base64 + "\"\\)"
         func tokenize(_ string:Swift.String)->[Swift.String] {
-            let s_all = [ "\\[", "\\]", ":", ",", s_null, s_bool, s_date, s_double, s_int, s_data, s_string].joined(separator:"|")
+            let s_all = [ "\\[", "\\]", ":", ",",
+                          s_null, s_bool, s_date, s_double, s_int, s_data, s_string
+                ].joined(separator:"|")
             let re = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
             var tokens = [Swift.String]()
             re.enumerateMatches(in: string, range:NSRange(0..<string.count)) { cr, _, _ in
