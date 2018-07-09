@@ -79,6 +79,27 @@ sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 sion["date"] = .Date(0.0)
 ```
 
+#### limitation
+
+Note that the RHS of the expression below is not exactly `nil` or `true` or `-42`.  They are `SION.Nil` and `SION.Bool(-42)` and `SION.Int(-42)` respectively.  That is why `.Data` and `.Date` are added later.  Swift gets confused when you say
+
+```swift
+var sion:SION = [
+    "string": "漢字、カタカナ、ひらがなの入ったstring😇",
+    "data": .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+]
+```
+
+Because it cannot tell they type of the content in. `""`.  In which case you can explicitly say
+
+```swift
+var sion:SION = [
+    "string": .String("漢字、カタカナ、ひらがなの入ったstring😇"),
+    "data": .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+]
+
+or add `"data"` later.
+
 …or String…
 
 ```swift
@@ -90,12 +111,8 @@ let sionStr = """
         1,
         0x1p+0,
         "one",
-        [
-            1
-        ],
-        [
-            "one" : 0x1p+0
-        ]
+        [1],
+        ["one" : 1.0]
     ],
     "bool" : true,
     "data" : .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
@@ -138,8 +155,6 @@ let jsonStr = """
     }
     ],
     "bool" : true,
-    "data" : "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-    "date" : 0.0,
     "dictionary" : {
         "array" : [],
         "bool" : false,
@@ -237,6 +252,10 @@ If you need `JSON`, simply call `.json`.
 ```swift
 sion.json
 ```
+
+### limitation
+
+Since JSON does not support `Date` and `Data`, `.json` converts `Date` to `Number` and `Date` to Base64-encoded `String` respectively.  `.json` also coverts all non-`String` keys to `String`.  Do not expect JSON to round trip.  It is less expressive than SION.
 
 You can also get [YAML] via `.yaml`.
 
