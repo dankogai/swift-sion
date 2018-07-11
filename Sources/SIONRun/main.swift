@@ -23,20 +23,19 @@ let plistdata = try! sion.pick{ !$0.isNil }.propertyList(format: .xml)
 print(String(data:plistdata, encoding:.utf8)!)
 var sionString = """
 [
-    "array": [
+    "array" : [
         nil,
         true,
-        1,
-        1.0,
+        1,    // Int in decimal
+        1.0,  // Double in decimal
         "one",
         [1],
         ["one" : 1.0]
     ],
-    "bool": true,
-    "data":
-       .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), // 1x1 pixel gif
-    "date": .Date(0x0p+0),
-    "dictionary": [
+    "bool" : true,
+    "data" : .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+    "date" : .Date(0x0p+0),
+    "dictionary" : [
         "array" : [],
         "bool" : false,
         "double" : 0x0p+0,
@@ -45,11 +44,17 @@ var sionString = """
         "object" : [:],
         "string" : ""
     ],
-    "double": +0x1.518f5c28f5c29p+5, // 42.195
-    "int": -0x2a, // -42
-    "nil": nil,
-    "string": "漢字、カタカナ、ひらがなの入ったstring // 😇", // comment
-    "url": "https://github.com/dankogai/"
+    "double" : 0x1.518f5c28f5c29p+5, // Double in hexadecimal
+    "int" : -0x2a, // Int in hexadecimal
+    "nil" : nil,
+    "string" : "漢字、カタカナ、ひらがなの入ったstring😇",
+    "url" : "https://github.com/dankogai/",
+    nil   : "Unlike JSON and Property Lists,",
+    true  : "Yes, SION",
+    1     : "does accept",
+    1.0   : "non-String keys.",
+    []    : "like",
+    [:]   : "Map of ECMAScript."
 ]
 """
 debugPrint(SION(string:sionString))

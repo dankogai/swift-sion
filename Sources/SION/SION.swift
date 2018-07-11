@@ -435,21 +435,29 @@ extension SION {
     public static func parse(_ string:Swift.String)->SION {
         let s_null = "nil"
         let s_bool = "true|false"
-        let s_double = "([+-]?)(0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(:?[pP][+-]?[0-9]+)"
-            + "|" + "(?:[1-9][0-9]*)(?:\\.[0-9]+)?(:?[eE][+-]?[0-9]+)?|0\\.0+)"
+        let s_double = """
+            ([+-]?)(
+                0x[0-9a-fA-F]+(?:\\.[0-9a-fA-F]+)?(?:[pP][+-]?[0-9]+)
+            |   (?:[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?
+            |   0(?:\\.0+|(?:\\.0+)?(?:[eE][+-]?[0-9]+))
+            |   (?:[Nn]a[Nn]|[Ii]nf(?:inity)?)
+            )
+        """.components(separatedBy: .whitespacesAndNewlines).joined()
         let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
         let s_date    = ".Date\\(" + s_double + "\\)"
         let s_string  = "\"(.*?)(?<!\\\\)\""
         let s_base64  = "(?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?"
         let s_data    = ".Data\\(\"" + s_base64 + "\"\\)"
         let s_comment = "//.*?(?:\n|\r|\r\n)"
+        let s_all = [ "\\[", "\\]", ":", ",",
+                      s_null, s_bool, s_date, s_double, s_int, s_data, s_string, s_comment
+            ].joined(separator:"|")
+        let reAll    = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
+        let reDouble = try! NSRegularExpression(pattern:"\\A\(s_double)\\z")
+        let reInt    = try! NSRegularExpression(pattern:"\\A\(s_int)\\z")
         func tokenize(_ string:Swift.String)->[Swift.String] {
-            let s_all = [ "\\[", "\\]", ":", ",",
-                          s_null, s_bool, s_date, s_double, s_int, s_data, s_string, s_comment
-                ].joined(separator:"|")
-            let re = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
             var tokens = [Swift.String]()
-            re.enumerateMatches(in: string, range:NSRange(0..<string.count)) { cr, _, _ in
+            reAll.enumerateMatches(in: string, range:NSRange(0..<string.count)) { cr, _, _ in
                 let token = Swift.String(string[Range(cr!.range, in:string)!])
                 if token.hasPrefix("//") { return } // ignore comment
                 tokens.append( token )
@@ -460,16 +468,15 @@ extension SION {
             return s == "true" ? .Bool(true) : s == "false" ? .Bool(false) : nil
         }
         func toDouble(_ s:String)->SION? {
-            let re = try! NSRegularExpression(pattern:"\\A\(s_double)\\z")
-            guard let cr = re.firstMatch(in: s, range: NSRange(0..<s.count)) else { return nil }
+            guard let cr = reDouble.firstMatch(in: s, range: NSRange(0..<s.count)) else { return nil }
             let sign      = s[Range(cr.range(at:1), in:s)!]
             let magnitude = s[Range(cr.range(at:2), in:s)!]
+            // debugPrint(sign, magnitude)
             let double    = (sign == "-" ? -1.0 : +1.0) * Swift.Double(magnitude)!
             return .Double(double)
         }
         func toInt(_ s:String)->SION? {
-            let re = try! NSRegularExpression(pattern:"\\A\(s_int)\\z")
-            guard let cr = re.firstMatch(in: s, range: NSRange(0..<s.count)) else { return nil }
+            guard let cr = reInt.firstMatch(in: s, range: NSRange(0..<s.count)) else { return nil }
             var int = 0
             let sign      = s[Range(cr.range(at:1), in:s)!]
             let magnitude = s[Range(cr.range(at:2), in:s)!]
@@ -499,7 +506,6 @@ extension SION {
             }
             return nil
         }
-
         func toString(_ s:String)->SION? {
             if s.first != "\"" { return nil }
             if s.last  != "\"" { return nil }
