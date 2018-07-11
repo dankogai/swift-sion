@@ -1,10 +1,13 @@
-# swift-sion
-
-Swift Interchangeable Object Notation
 
 [![Swift 4.1](https://img.shields.io/badge/swift-4.1-brightgreen.svg)](https://swift.org)
 [![MIT LiCENSE](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
 [![build status](https://secure.travis-ci.org/dankogai/swift-sion.png)](http://travis-ci.org/dankogai/swift-sion)
+
+# swift-sion
+
+[SION] handler in Swift
+
+[SION]: http://dankogai.github.com/SION/
 
 ## Synopsis
 
@@ -28,9 +31,7 @@ sion["date"] = .Date(0x0p+0)
 
 ## Description
 
-This module is both an introduction and a reference implementation of `SION`, a data serialization format that is like [JSON] but more capable.
-
-* As JSON is originated from a {ECMA,Java}Script literal, SION is originated from a Swift literal.
+This module is both an introduction and a reference implementation of `SION`, a data serialization formatlike [JSON] but more capable and expressive . As JSON is originated from a {ECMA,Java}Script literal, SION is originated from a Swift literal, hen
 * It can serialize anything JSON can. Plus
   * support `Data`
   * support `Date`
@@ -58,6 +59,9 @@ This module is both an introduction and a reference implementation of `SION`, a 
 
 * As you see `SION` is upper-compatible with JSON and Property List.  As a matter of fact, `SION` can {,de}serialize JSON and Property List.
 * **TODO**: MsgPack {,de}serializer.
+
+As for the format details, see the main page of [SION].
+
 
 ### Initialization
 
