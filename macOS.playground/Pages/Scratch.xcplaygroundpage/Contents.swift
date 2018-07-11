@@ -15,6 +15,7 @@ debugPrint(sion)
 print(SION.parse(sion.description))
 
 var s = SION([:])
+SION.parse("[[1").description
 
 //let re = try! NSRegularExpression(pattern:"([+-]?)(0(:?x[0-9a-fA-F]+|o[0-7]+|b[01]+)|[0-9]+)")
 //let s = "+01234, -56789, 0xdeadbeef, 0o777, 0b010101"

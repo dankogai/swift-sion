@@ -536,7 +536,7 @@ extension SION {
                 if tokens[i] == "[" {
                     var subtokens = ["["]
                     d = 1; i += 1
-                    while true {
+                    while i < tokens.count {
                         if tokens[i] == "["         { d += 1 }
                         else if tokens[i] == "]"    { d -= 1 }
                         subtokens.append(tokens[i])

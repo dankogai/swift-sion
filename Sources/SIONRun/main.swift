@@ -58,3 +58,7 @@ var sionString = """
 ]
 """
 debugPrint(SION(string:sionString))
+
+debugPrint(SION.parse("[[1"))
+debugPrint(SION.parse("[1]]"))
+
