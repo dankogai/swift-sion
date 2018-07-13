@@ -29,6 +29,7 @@ public indirect enum SION:Equatable {
     case Date(Date)
     case String(String)
     case Data(Data)
+    case Ext(Data)
     case Array([Value])
     case Dictionary([Key:Value])
 }
@@ -43,6 +44,7 @@ extension SION : Hashable {
         case .Date(let v):          return v.hashValue
         case .String(let v):        return v.hashValue
         case .Data(let v):          return v.hashValue
+        case .Ext(let v):           return v.hashValue
         case .Array(let v):         return "\(v)".hashValue // will be fixed in Swift 4.2
         case .Dictionary(let v):    return "\(v)".hashValue // will be fixed in Swift 4.2
         }
@@ -61,6 +63,7 @@ extension SION : CustomStringConvertible, CustomDebugStringConvertible {
         case .Date(let v):      return ".Date(" + Swift.String(format:"%a", v.timeIntervalSince1970) + ")"
         case .String(let v):    return v.debugDescription
         case .Data(let v):      return ".Data(\"" + v.base64EncodedString() + "\")"
+        case .Ext(let v):       return ".Ext(\"" + v.base64EncodedString() + "\")"
         case .Array(let a):
             guard !a.isEmpty else { return "[]" }
             return "[" + t
@@ -102,6 +105,7 @@ extension SION : CustomStringConvertible, CustomDebugStringConvertible {
         case .Date(let v):      return v.timeIntervalSince1970.description
         case .String(let v):    return v.debugDescription
         case .Data(let v):      return "\"" + v.base64EncodedString() + "\""
+        case .Ext(let v):       return "\"" + v.base64EncodedString() + "\""
         case .Array(let a):
             guard !a.isEmpty else { return "[]" }
             return "[" + t
@@ -210,6 +214,7 @@ extension SION {
         case .Date(let v):      return v
         case .String(let v):    return v
         case .Data(let v):      return v
+        case .Ext(let v):       return v
         case .Array(let a):     return a.map{ $0.nsObject }
         case .Dictionary(let o):
             let k = o.keys.map   { $0.nsObject as! NSCopying }
@@ -263,7 +268,7 @@ extension SION {
 }
 extension SION {
     public enum ContentType {
-        case error, null, bool, int, double, date, string, data, array, dictionary
+        case error, null, bool, int, double, date, string, data, ext, array, dictionary
     }
     public var type:ContentType {
         switch self {
@@ -273,6 +278,7 @@ extension SION {
         case .Int(_):           return .int
         case .Double(_):        return .double
         case .Date(_):          return .date
+        case .Ext(_):           return .ext
         case .String(_):        return .string
         case .Data(_):          return .data
         case .Array(_):         return .array
@@ -304,6 +310,10 @@ extension SION {
     public var data:Data? {
         get { switch self { case .Data(let v):return v default: return nil } }
         set { self = .Data(newValue!) }
+    }
+    public var ext:Data? {
+        get { switch self { case .Ext(let v):return v default: return nil } }
+        set { self = .Ext(newValue!) }
     }
     public var array:[Value]? {
         get { switch self { case .Array(let v): return v default: return nil } }
@@ -447,10 +457,10 @@ extension SION {
         let s_date    = ".Date\\(" + s_double + "\\)"
         let s_string  = "\"(.*?)(?<!\\\\)\""
         let s_base64  = "(?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?"
-        let s_data    = ".Data\\(\"" + s_base64 + "\"\\)"
+        let s_dataext = ".(?:Data|Ext)\\(\"" + s_base64 + "\"\\)"
         let s_comment = "//.*?(?:\n|\r|\r\n)"
         let s_all = [ "\\[", "\\]", ":", ",",
-                      s_null, s_bool, s_date, s_double, s_int, s_data, s_string, s_comment
+                      s_null, s_bool, s_date, s_double, s_int, s_dataext, s_string, s_comment
             ].joined(separator:"|")
         let reAll    = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
         let reDouble = try! NSRegularExpression(pattern:"\\A\(s_double)\\z")
@@ -511,22 +521,23 @@ extension SION {
             if s.last  != "\"" { return nil }
             return SION(json:Swift.String(s))
         }
-        func toData(_ s:String)->SION? {
-            //              0123456
-            guard s.hasPrefix(".Data(\"") else { return nil }
-            guard s.hasSuffix("\")")      else { return nil }
+        func toDataExt(_ s:String)->SION? {
+            //                             012345 6                          01234 5
+            let isExt:Bool? = s.hasPrefix(".Data(\"") ? false : s.hasPrefix(".Ext(\"") ? true : nil
+            if isExt == nil { return nil }
+            guard s.hasSuffix("\")") else { return nil }
             var ss = s
-            ss.removeFirst(7)
+            ss.removeFirst(isExt! ? 6 : 7)
             ss.removeLast(2)
             // print(ss)
             if let data = Foundation.Data(base64Encoded:ss, options:[.ignoreUnknownCharacters]) {
-                return SION.Data(data)
+                return isExt! ? SION.Ext(data) : SION.Data(data)
             }
             return nil
         }
         func toElement(_ s:Swift.String)->SION {
             return s == "nil" ? .Nil
-                : toBool(s) ?? toInt(s) ?? toDate(s) ?? toDouble(s) ?? toData(s) ?? toString(s) ?? .Error(.notASIONType)
+                : toBool(s) ?? toInt(s) ?? toDate(s) ?? toDouble(s) ?? toDataExt(s) ?? toString(s) ?? .Error(.notASIONType)
         }
         func toCollection(_ tokens:[Swift.String])->SION {
             let isDictionary = 2 < tokens.count && tokens[2] == ":" || tokens[1] == ":"
@@ -625,6 +636,7 @@ extension SION : Codable {
         case .Date(let v):      try c.encode(v)
         case .String(let v):    try c.encode(v)
         case .Data(let v):      try c.encode(v)
+        case .Ext(let v):       try c.encode(v)
         case .Array(let v):     try c.encode(v)
         case .Dictionary(let v):try c.encode(v)
         default:

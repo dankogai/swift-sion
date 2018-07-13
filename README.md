@@ -27,6 +27,7 @@ var sion:SION = [
 ]
 sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 sion["date"] = .Date(0x0p+0)
+sion["ext"]  = .Ext("1NTU") // 0xd4,0xd4,0xd4
 ```
 
 ## Description
@@ -56,6 +57,8 @@ This module is both an introduction and a reference implementation of `SION`, a 
 | `[Self]`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ | aka Array |
 | `[String:Self]` | ✔︎ | ✔︎ | ✔︎ | ✔︎ | aka Object, Map…|
 | `[Self:Self]`   | ✔︎ | ✔︎ | ❌ | ❌ |non-`String` keys|
+| `Ext`           | ✔︎ | ✔︎ | ❌ | ❌ |msgpack extension|
+
 
 * As you see `SION` is upper-compatible with JSON and Property List.  As a matter of fact, `SION` can {,de}serialize JSON and Property List.
 * **TODO**: MsgPack {,de}serializer.
@@ -82,6 +85,7 @@ var sion:SION = [
 ]
 sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 sion["date"] = .Date(0.0)
+sion["ext"]  = .Ext("1NTU")
 ```
 
 #### limitation
@@ -133,6 +137,7 @@ let sionStr = """
         "string" : ""
     ],
     "double": 0x1.518f5c28f5c29p+5, // double in hex
+    "ext": .Ext("1NTU"),            // 0xd4,0xd4,0xd4
     "int": -42,                     // int in hex
     "nil": nil,
     "string": "漢字、カタカナ、ひらがなの入ったstring😇",

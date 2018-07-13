@@ -16,6 +16,7 @@ var sion:SION = [
 print(try sion.jsonObject() )
 sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 sion["date"] = .Date(0.0)
+sion["ext"]  = .Ext("1NTU")
 debugPrint(sion)
 print(sion.yaml)
 print("SION.parse(sion.debugDescription) == sion //", SION.parse(sion.debugDescription) == sion)
@@ -44,6 +45,7 @@ var sionString = """
         "object" : [:],
         "string" : ""
     ],
+    "ext" : .Ext("1NTU"),
     "double" : 0x1.518f5c28f5c29p+5, // Double in hexadecimal
     "int" : -0x2a, // Int in hexadecimal
     "nil" : nil,
@@ -59,6 +61,6 @@ var sionString = """
 """
 debugPrint(SION(string:sionString))
 
-debugPrint(SION.parse("[[1"))
-debugPrint(SION.parse("[1]]"))
+//debugPrint(SION.parse("[[1"))
+//debugPrint(SION.parse("[1]]"))
 

@@ -26,6 +26,9 @@ final class SIONTests: XCTestCase {
         sion1["date"] = .Date(0.0)
         str1 = sion1.description
         XCTAssertEqual(SION(string:str1), sion1)
+        sion1["ext"] = .Ext("1NTU")
+        str1 = sion1.description
+        XCTAssertEqual(SION(string:str1), sion1)
     }
 //    func testCodable() {
 //        let data1 = try! JSONEncoder().encode(sion0)
