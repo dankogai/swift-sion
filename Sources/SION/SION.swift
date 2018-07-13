@@ -3,7 +3,7 @@
 //  SION
 //
 //  Created by Dan Kogai on 7/15/14.
-//  Copyright (c) 2014-2018 Dan Kogai. All rights reserved.
+//  Copyright (c) 2018 Dan Kogai. All rights reserved.
 //
 
 import Foundation
@@ -207,7 +207,7 @@ extension SION {
     /// SION -> NSObject
     public var nsObject:Any {
         switch self {
-        case .Nil:             return NSNull()
+        case .Nil:              return NSNull()
         case .Bool(let v):      return v
         case .Int(let v):       return v
         case .Double(let v):    return v
@@ -442,7 +442,7 @@ extension SION : Sequence {
 }
 extension SION {
     /// parse string to SION
-    public static func parse(_ string:Swift.String)->SION {
+    public static func parse(string:Swift.String)->SION {
         let s_null = "nil"
         let s_bool = "true|false"
         let s_double = """
@@ -583,16 +583,32 @@ extension SION {
     }
     /// initialize from string
     public init(string:String) {
-        self = SION.parse(string)
+        self = SION.parse(string:string)
+    }
+}
+extension SION : CodingKey {
+    public init(stringValue s:String) {
+        self = .String(s)
+    }
+    public init(intValue i:Int) {
+        self = .Int(i)
+    }
+    public var stringValue: String {
+        return self.string ?? self.description
+    }
+    public var intValue: Int? {
+        return self.int
     }
 }
 extension SION : Codable {
+    typealias CK = Swift.String
     private static let codableTypes:[Codable.Type] = [
-        [Key:Value].self, [Value].self,
-        Foundation.Data.self, Swift.String.self,
+        [CK:Value].self, [Value].self,
+        Swift.String.self,
         Swift.Bool.self,
         Swift.UInt.self, Swift.Int.self,
-        Foundation.Date.self, Swift.Double.self, Swift.Float.self,
+        Swift.Double.self, Swift.Float.self,
+        Foundation.Data.self, Foundation.Date.self,
         UInt64.self, UInt32.self, UInt16.self, UInt8.self,
         Int64.self,  Int32.self,  Int16.self,  Int8.self,
     ]
@@ -613,10 +629,15 @@ extension SION : Codable {
                 case let t as Float.Type:       if let v = try? c.decode(t) { self = .Double(Swift.Double(v)); return }
                 case let t as Double.Type:      if let v = try? c.decode(t) { self = .Double(v); return }
                 case let t as Swift.String.Type:if let v = try? c.decode(t) { self = .String(v); return }
-                case let t as [Value].Type:     if let v = try? c.decode(t) { self = .Array(v); return }
-                case let t as [Key:Value].Type: if let v = try? c.decode(t) { self = .Dictionary(v); return }
                 case let t as Foundation.Date.Type: if let v = try? c.decode(t) { self = .Date(v); return }
                 case let t as Foundation.Data.Type: if let v = try? c.decode(t) { self = .Data(v); return }
+                case let t as [Value].Type:     if let v = try? c.decode(t) { self = .Array(v); return }
+                case let t as [CK:Value].Type:  if let v = try? c.decode(t) {
+                    var o = [Key:Value]()
+                    v.forEach{ o[SION($0.0)] = $0.1 }
+                    self = .Dictionary(o)
+                    return
+                }
                 default: break
                 }
             }
@@ -624,21 +645,23 @@ extension SION : Codable {
         self = SION.Nil
     }
     public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer()
-        if self.isNil {
-            try c.encodeNil()
-            return
-        }
+        var sc = encoder.singleValueContainer()
+        if self.isNil { try sc.encodeNil(); return }
         switch self {
-        case .Bool(let v):      try c.encode(v)
-        case .Int(let v):       try c.encode(v)
-        case .Double(let v):    try c.encode(v)
-        case .Date(let v):      try c.encode(v)
-        case .String(let v):    try c.encode(v)
-        case .Data(let v):      try c.encode(v)
-        case .Ext(let v):       try c.encode(v)
-        case .Array(let v):     try c.encode(v)
-        case .Dictionary(let v):try c.encode(v)
+        case .Bool(let v):      try sc.encode(v)
+        case .Int(let v):       try sc.encode(v)
+        case .Double(let v):    try sc.encode(v)
+        case .String(let v):    try sc.encode(v)
+        case .Data(let v):      try sc.encode(v)
+        case .Date(let v):      try sc.encode(v)
+        case .Ext(let v):       try sc.encode(v)
+        case .Array(let v):     try sc.encode(v)
+        case .Dictionary(let v):
+            // try sc.encode(v)
+            // currently Encodable accepts string keys or int keys :-(
+            var o = [Swift.String:Value]()
+            v.forEach{ o[$0.0.stringValue] = $0.1 }
+            try sc.encode(o)
         default:
             break
         }
@@ -702,4 +725,85 @@ extension SION {
         })
     }
 }
-
+extension SION {
+    public static func parse(msgPack d:Data)->SION {
+        let err = SION.Error(.notASIONType)
+        guard 0 < d.count else { return err }
+        if d.count == 1 {
+            switch d[0] {
+            case 0x00...0x7f : return .Int(Swift.Int(d[0]))
+            case 0xc0: return .Nil
+            case 0xc2: return .Bool(false)
+            case 0xc3: return .Bool(true)
+            case 0xe0...0xff : return .Int(Swift.Int(Swift.Int8(bitPattern:d[0])))
+            default:
+                 return .Error(.notASIONType)
+            }
+        }
+        switch d[0] {
+        case 0xcc: return d.count != 2 ? err
+            : .Int(Swift.Int(d[1]))
+        case 0xca: return d.count != 5 ? err
+            : .Double(Swift.Double(Float32(bitPattern:
+                UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self)))))
+        case 0xcb: return d.count != 9 ? err
+            : .Double(Swift.Double(bitPattern:
+                UInt64(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt64.self))))
+        case 0xcd: return d.count != 3 ? err
+            : .Int(Swift.Int(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))))
+        case 0xce: return d.count != 5 ? err
+                : .Int(Swift.Int(UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))))
+        case 0xcf: return d.count != 9 ? err
+            : .Int(Swift.Int(bitPattern:UInt(bigEndian:unsafeBitCast(
+                (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self))))
+        case 0xd0: return d.count != 2 ? err
+            : .Int(Swift.Int(Int8(bitPattern:d[1])))
+        case 0xd1: return d.count != 3 ? err
+            : .Int(Swift.Int(Int16(bigEndian:unsafeBitCast((d[1],d[2]), to:Int16.self))))
+        case 0xd2: return d.count != 5 ? err
+            : .Int(Swift.Int(Int32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:Int32.self))))
+        case 0xd3: return d.count != 9 ? err
+            : .Int(Swift.Int(bitPattern:UInt(bigEndian:unsafeBitCast(
+                (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self))))
+        default:
+            return err
+        }
+    }
+    public init(msgPack data:Data) {
+        self = SION.parse(msgPack:data)
+    }
+    public var msgPack:Foundation.Data {
+        typealias C = UInt8
+        switch self {
+        case .Nil:              return Foundation.Data([0xc0])
+        case .Bool(let v):      return Foundation.Data([v ? 0xc3 : 0xc2])
+        case .Int(let v):
+            switch v {
+            case -32...0x7f:
+                return Foundation.Data([UInt8(bitPattern:Int8(v))])
+            case -0x80...0x7f :
+                return Foundation.Data([0xd0, UInt8(bitPattern:Int8(v))])
+            case -0x8000...0x7fff:
+                let (u0,u1) = unsafeBitCast(Int16(bigEndian: Int16(v)), to:(C,C).self)
+                return Foundation.Data([0xd1, u0,u1])
+            case -0x8000_0000...0x7fff_ffff:
+                let (u0,u1,u2,u3) = unsafeBitCast(Int32(bigEndian: Int32(v)), to:(C,C,C,C).self)
+                return Foundation.Data([0xd2, u0,u1,u2,u3])
+            default:
+                let (u0,u1,u2,u3,u4,u5,u6,u7) = unsafeBitCast(Swift.Int(bigEndian: v), to:(C,C,C,C,C,C,C,C).self)
+                return Foundation.Data([0xd3, u0,u1,u2,u3,u4,u5,u6,u7])
+            }
+        case .Double(let v):
+            let u64 = UInt64(bigEndian: UInt64(v.bitPattern))
+            let (u0,u1,u2,u3,u4,u5,u6,u7) = unsafeBitCast(u64, to:(C,C,C,C,C,C,C,C).self)
+            return Foundation.Data([0xcb, u0,u1,u2,u3,u4,u5,u6,u7])
+//        case .Double(let v):    return v.description
+//        case .Date(let v):      return v.timeIntervalSince1970.description
+//        case .String(let v):    return v.debugDescription
+//        case .Data(let v):      return "\"" + v.base64EncodedString() + "\""
+//        case .Ext(let v):       return "\"" + v.base64EncodedString() + "\""
+        default:
+            return Foundation.Data()
+        }
+    }
+}
