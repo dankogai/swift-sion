@@ -845,6 +845,45 @@ extension SION {
                     m[k] = v
                 }
                 return (m, o)
+            case 0xd4:
+                return (.Ext(d[0..<3]), 3)
+            case 0xd5:
+                return (.Ext(d[0..<4]), 4)
+            case 0xd6:
+                if d[1] == 0xff {   // timestamp32
+                    let tv_sec =
+                        UInt32(bigEndian: unsafeBitCast((d[2],d[3],d[4],d[5]), to: UInt32.self))
+                    let time = Swift.Double(tv_sec)
+                    return (.Date(Foundation.Date(timeIntervalSince1970: time)), 6)
+                }
+                return (.Ext(d[0..<6]), 6)
+            case 0xd7:
+                if d[1] == 0xff {   // timestamp64
+                    let data64 =
+                        UInt64(bigEndian: unsafeBitCast((d[2],d[3],d[4],d[5],d[6],d[7],d[8],d[9]), to: UInt64.self))
+                    let tv_nsec = data64 >> 34;
+                    let tv_sec = data64 & 0x00000003ffffffff;
+                    let time = Swift.Double(tv_sec) + Swift.Double(tv_nsec)/1e9
+                    return (.Date(Foundation.Date(timeIntervalSince1970: time)), 10)
+                }
+                return (.Ext(d[0..<10]), 10)
+            case 0xd8:
+                return (.Ext(d[0..<18]), 18)
+            case 0xc7:
+                if d[1] == 0xff {   // timestamp96
+                    let tv_nsec = UInt32(bigEndian:unsafeBitCast((d[2],d[3],d[4],d[5]), to: UInt32.self))
+                    let tv_sec =
+                        UInt64(bigEndian: unsafeBitCast((d[6],d[7],d[8],d[9],d[10],d[11],d[12],d[13]), to: UInt64.self))
+                    let time = Swift.Double(tv_sec) + Swift.Double(tv_nsec)/1e9
+                    return (.Date(Foundation.Date(timeIntervalSince1970: time)), 14)
+                }
+                return (.Ext(d[0..<I(d[1])]), I(d[1])+3)
+            case 0xc8:
+                let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
+                return (.Ext(d[0..<I(len)]), I(len)+4)
+            case 0xc9:
+                let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
+                return (.Ext(d[0..<I(len)]), I(len)+6)
             default:
                 return (err, 0)
             }
@@ -947,8 +986,17 @@ extension SION {
             default:
                 fatalError("Map too large!")
             }
+        case .Date(let v):
+            let time = v.timeIntervalSince1970
+            let tv_sec  = UInt64(time)
+            let tv_nsec = UInt64((time - trunc(time)) * 1e9)
+            let data64  = UInt64(bigEndian:(tv_nsec << 34) | tv_sec)
+            let (u1,u2,u3,u4,u5,u6,u7,u8) = unsafeBitCast(data64, to:(C,C,C,C,C,C,C,C).self)
+            return FD([0xd7, 0xff, u1,u2,u3,u4,u5,u6,u7,u8])
+        case .Ext(let v):
+            return v    // return as is
         default:
-            return Foundation.Data()
+            fatalError("Invalid msgPack")
         }
     }
 }
