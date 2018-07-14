@@ -1,7 +1,8 @@
 //: [Previous](@previous)
-
-// mport SION 
-
+//import SION
+//: ### Conversion
+//:
+//: You can build SION directly as a literal…
 var sion:SION = [
     "nil":      nil,
     "bool":     true,
@@ -16,8 +17,26 @@ var sion:SION = [
 ]
 sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 sion["date"] = .Date(0x0p+0)
-sion["ext"]  = .Ext("1NTU")
-sion["self"] = sion
-debugPrint(sion)
+//: once you have the `SION` object, converting to other formats is simple.
+//:
+//: to JSON string, all you need is stringify it.  `.description` or `"\(json)"`
+//: would be enough.
+
+sion.description
+"\(sion)"
+
+//: if you need JSON, simply call `.json`
+
+sion.json
+
+//: You can also get [YAML] via `.yaml`.
+
+sion.yaml
+
+//: And `.propertyList` for Property List.
+
+// pick() removes Nil
+
+String(data:try! sion.pick{ !$0.isNil }.propertyList(format: .xml), encoding:.utf8)!
 
 //: [Next](@next)

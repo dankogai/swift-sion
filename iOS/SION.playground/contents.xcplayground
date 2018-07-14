@@ -2,7 +2,8 @@
 <playground version='6.0' target-platform='ios' display-mode='raw'>
     <pages>
         <page name='Synopis'/>
-        <page name='init'/>
+        <page name='Initialization'/>
+        <page name='Conversion'/>
         <page name='Description'/>
     </pages>
 </playground>
