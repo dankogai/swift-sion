@@ -32,7 +32,6 @@ final class SIONTests: XCTestCase {
     }
     func testCodable() {
         let data1 = try! JSONEncoder().encode(sion0)
-        print(String(data:data1, encoding:.utf8)!)
         let sion1 = try! JSONDecoder().decode(SION.self, from:data1)
         XCTAssertEqual(sion1, sion0)
         struct Point:Hashable, Codable { let (x, y):(Int, Int) }
@@ -40,8 +39,13 @@ final class SIONTests: XCTestCase {
         let sion2:SION = ["x":3, "y":4]
         XCTAssertEqual(try! JSONDecoder().decode(SION.self, from:data2), sion2)
     }
+    func testMsgPack() {
+        let data = sion0.msgPack
+        XCTAssertEqual(SION(msgPack: data), sion0)
+    }
     static var allTests = [
         ("testBasic",   testBasic),
         ("testCodable", testCodable),
+        ("testMsgPack", testMsgPack),
     ]
 }

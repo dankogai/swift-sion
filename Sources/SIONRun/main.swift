@@ -19,7 +19,7 @@ sion["date"] = .Date(0.0)
 sion["ext"]  = .Ext("1NTU")
 debugPrint(sion)
 print(sion.yaml)
-print("SION.parse(sion.debugDescription) == sion //", SION.parse(sion.debugDescription) == sion)
+print("SION(string:sion.debugDescription) == sion //", SION(string:sion.debugDescription) == sion)
 let plistdata = try! sion.pick{ !$0.isNil }.propertyList(format: .xml)
 print(String(data:plistdata, encoding:.utf8)!)
 var sionString = """

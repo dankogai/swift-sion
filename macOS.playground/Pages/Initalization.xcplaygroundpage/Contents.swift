@@ -17,6 +17,7 @@ var sion:SION = [
 ]
 sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 sion["date"] = .Date(0x0p+0)
+sion["ext"]  = .Ext("1NTU")
 
 //: …or String…
 
@@ -48,6 +49,7 @@ let sionStr = """
         "string" : ""
     ],
     "double" : 0x1.518f5c28f5c29p+5,
+    "ext" : .Ext("1NTU"),
     "int" : -42,
     "nil" : nil,
     "string" : "漢字、カタカナ、ひらがなの入ったstring😇",
@@ -166,4 +168,9 @@ debugPrint(SION(propertyList:plistXML.data(using:.utf8)!, format:.xml))
 //} catch {
 //  print(error)
 //}
+import Foundation
+var msgData = Data(
+    [0x82,0xa7,0x63,0x6f,0x6d,0x70,0x61,0x63,0x74,0xc3,0xa6,0x73,0x63,0x68,0x65,0x6d,0x61,0x00]
+)
+print(SION(msgPack:msgData))
 //: [Next](@next)

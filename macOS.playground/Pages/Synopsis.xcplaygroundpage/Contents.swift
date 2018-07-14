@@ -16,6 +16,7 @@ var sion:SION = [
 ]
 sion["data"] = .Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
 sion["date"] = .Date(0x0p+0)
+sion["ext"]  = .Ext("1NTU")
 sion["self"] = sion
 debugPrint(sion)
 

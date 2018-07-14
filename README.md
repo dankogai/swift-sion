@@ -61,10 +61,8 @@ This module is both an introduction and a reference implementation of `SION`, a 
 
 
 * As you see `SION` is upper-compatible with JSON and Property List.  As a matter of fact, `SION` can {,de}serialize JSON and Property List.
-* **TODO**: MsgPack {,de}serializer.
 
 As for the format details, see the main page of [SION].
-
 
 ### Initialization
 
@@ -147,7 +145,7 @@ let sionStr = """
 SION(string:sionStr)
 ```
 
-#### from [JSON] string or JSON-emitting URL…
+#### from [JSON] string or JSON-emitting URL
 
 ```swift
 let jsonStr = """
@@ -247,6 +245,18 @@ let plistXML = """
 SION(propertyList:plistXML.data(using:.utf8)!, format:.xml)
 ```
 
+### from [msgPack]
+
+```swift
+import Foundation
+var msgData = Data([
+    0x82,0xa7,0x63,0x6f,0x6d,0x70,0x61,0x63,
+    0x74,0xc3,0xa6,0x73,0x63,0x68,0x65,0x6d,
+    0x61,0x00
+])
+SION(msgPack:msgData)   // ["compact":true,"schema":0]
+```
+
 ### Conversion
 
 once you have the SION object, converting to other formats is simple.
@@ -262,6 +272,12 @@ If you need `JSON`, simply call `.json`.
 
 ```swift
 sion.json
+```
+
+And `.msgPack` gives you [msgPack] Data:
+
+```swift
+sion.msgPack
 ```
 
 ### limitation
