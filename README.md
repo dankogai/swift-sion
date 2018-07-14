@@ -608,6 +608,10 @@ $ scripts/ios-prep.sh
 
 and `iOS/JSON.playground` is all set.  You do not have to `import JSON` therein.
 
+The playgoround is fully compatible with iOS.  Sync it via iCloud drive and enjoy!
+
+![](iOS/playgrounds.png)
+
 ### From Your SwiftPM-Managed Projects
 
 Add the following to the `dependencies` section:
