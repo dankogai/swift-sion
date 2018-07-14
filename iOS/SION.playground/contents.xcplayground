@@ -4,6 +4,6 @@
         <page name='Synopis'/>
         <page name='Initialization'/>
         <page name='Conversion'/>
-        <page name='Description'/>
+        <page name='Manipulation'/>
     </pages>
 </playground>
