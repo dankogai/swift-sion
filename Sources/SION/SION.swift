@@ -382,6 +382,16 @@ extension SION {
 extension SION : Sequence {
     public typealias Element = (key:SION,value:SION)  // for Sequence conformance
     public typealias Iterator = AnyIterator<Element>
+    public var count:Int {
+        switch self {
+        case .Array(let v):
+            return v.count
+        case .Dictionary(let v):
+            return v.count
+        default:
+            return 0
+        }
+    }
     public func makeIterator() -> AnyIterator<SION.Element> {
         switch self {
         case .Array(let a):
@@ -726,82 +736,217 @@ extension SION {
     }
 }
 extension SION {
-    public static func parse(msgPack d:Data)->SION {
-        let err = SION.Error(.notASIONType)
-        guard 0 < d.count else { return err }
-        if d.count == 1 {
+    public static func parse(msgPack:Data)->SION {
+        typealias I = Swift.Int
+        typealias S = Swift.String
+        func inner(_ d:Data)->(SION, Int) {
+            let err = SION.Error(.notASIONType)
+            guard 0 < d.count else { return (err, 0) }
             switch d[0] {
-            case 0x00...0x7f : return .Int(Swift.Int(d[0]))
-            case 0xc0: return .Nil
-            case 0xc2: return .Bool(false)
-            case 0xc3: return .Bool(true)
-            case 0xe0...0xff : return .Int(Swift.Int(Swift.Int8(bitPattern:d[0])))
+            case 0x00...0x7f : return (.Int(Swift.Int(d[0])), 1)
+            case 0xa0: return (.String(""), 1)
+            case 0xc0: return (.Nil, 1)
+            case 0xc2: return (.Bool(false), 1)
+            case 0xc3: return (.Bool(true),  1)
+            case 0xe0...0xff : return (.Int(I(Swift.Int8(bitPattern:d[0]))), 1)
+            case 0xcc: return (.Int(Swift.Int(d[1])), 2)
+            case 0xca: return (
+                .Double(Swift.Double(Float32(bitPattern:
+                    UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))))), 5)
+            case 0xcb: return (
+                .Double(Swift.Double(bitPattern:
+                    UInt64(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt64.self)))), 9)
+            case 0xcd: return (.Int(I(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self)))), 3)
+            case 0xce: return (
+                .Int(Swift.Int(UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self)))),5)
+            case 0xcf: return (
+                 .Int(Swift.Int(bitPattern:UInt(bigEndian:unsafeBitCast(
+                    (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self)))), 9)
+            case 0xd0: return ( .Int(I(Int8(bitPattern:d[1]))), 2)
+            case 0xd1: return ( .Int(I(Int16(bigEndian:unsafeBitCast((d[1],d[2]), to:Int16.self)))), 3)
+            case 0xd2: return ( .Int(I(Int32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:Int32.self)))), 5)
+            case 0xd3: return ( .Int(I(bitPattern:UInt(bigEndian:unsafeBitCast(
+                    (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self)))), 9)
+            case 0b10100000...0b10111111:   // fixstr
+                let c = d[0] & 0b11111
+                return (.String(S(data:d[1...I(c)], encoding:.utf8)!), I(c)+1)
+            case 0xd9:
+                return (.String(S(data:d[2...I(d[1])+1], encoding:.utf8)!), I(d[1])+2)
+            case 0xda:
+                let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
+                return (.String(S(data:d[3...I(len)+1], encoding:.utf8)!), I(len)+3)
+            case 0xdb:
+                let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
+                return (.String(S(data:d[5...I(len)+1], encoding:.utf8)!), I(len)+5)
+            case 0xc4: return (.Data(d[1..<I(d[1])]), I(d[1])+1)
+            case 0xc5:
+                let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
+                return (.Data(d[3..<I(len)]), I(len)+3)
+            case 0xc6:
+                let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
+                return (.Data(d[5..<I(len)]), I(len)+5)
+            case 0b10010000...0b10011111:   // fixarray
+                let len = I(d[0] & 0b1111)
+                var (a, o) = ([SION](), 1)
+                for _ in 0..<len {
+                    let (v, c) = inner(Foundation.Data(d[o...]))
+                    o += c
+                    a.append(v)
+                }
+                return (.Array(a), o)
+            case 0xdc:
+                let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
+                var (a, o) = ([SION](), 3)
+                for _ in 0..<len {
+                    let (v, c) = inner(Foundation.Data(d[o...]))
+                    o += c
+                    a.append(v)
+                }
+                return (.Array(a), o)
+            case 0xdd:
+                let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
+                var (a, o) = ([SION](), 5)
+                for _ in 0..<len {
+                    let (v, c) = inner(Foundation.Data(d[o...]))
+                    o += c
+                    a.append(v)
+                }
+                return (.Array(a), o)
+            case 0b10000000...0b10001111:   // fixmap
+                let len = I(d[0] & 0b1111)
+                var (m, o) = (SION([:]), 1)
+                for _ in 0..<len {
+                    let (k, ck) = inner(Foundation.Data(d[o...]))
+                    o += ck
+                    let (v, cv) = inner(Foundation.Data(d[o...]))
+                    o += cv
+                    m[k] = v
+                }
+                return (m, o)
+            case 0xde:
+                let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
+                var (m, o) = (SION([:]), 3)
+                for _ in 0..<len {
+                    let (k, ck) = inner(Foundation.Data(d[o...]))
+                    o += ck
+                    let (v, cv) = inner(Foundation.Data(d[o...]))
+                    o += cv
+                    m[k] = v
+                }
+                return (m, o)
+            case 0xdf:
+                let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
+                var (m, o) = (SION([:]), 5)
+                for _ in 0..<len {
+                    let (k, ck) = inner(Foundation.Data(d[o...]))
+                    o += ck
+                    let (v, cv) = inner(Foundation.Data(d[o...]))
+                    o += cv
+                    m[k] = v
+                }
+                return (m, o)
             default:
-                 return .Error(.notASIONType)
+                return (err, 0)
             }
         }
-        switch d[0] {
-        case 0xcc: return d.count != 2 ? err
-            : .Int(Swift.Int(d[1]))
-        case 0xca: return d.count != 5 ? err
-            : .Double(Swift.Double(Float32(bitPattern:
-                UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self)))))
-        case 0xcb: return d.count != 9 ? err
-            : .Double(Swift.Double(bitPattern:
-                UInt64(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt64.self))))
-        case 0xcd: return d.count != 3 ? err
-            : .Int(Swift.Int(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))))
-        case 0xce: return d.count != 5 ? err
-                : .Int(Swift.Int(UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))))
-        case 0xcf: return d.count != 9 ? err
-            : .Int(Swift.Int(bitPattern:UInt(bigEndian:unsafeBitCast(
-                (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self))))
-        case 0xd0: return d.count != 2 ? err
-            : .Int(Swift.Int(Int8(bitPattern:d[1])))
-        case 0xd1: return d.count != 3 ? err
-            : .Int(Swift.Int(Int16(bigEndian:unsafeBitCast((d[1],d[2]), to:Int16.self))))
-        case 0xd2: return d.count != 5 ? err
-            : .Int(Swift.Int(Int32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:Int32.self))))
-        case 0xd3: return d.count != 9 ? err
-            : .Int(Swift.Int(bitPattern:UInt(bigEndian:unsafeBitCast(
-                (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self))))
-        default:
-            return err
-        }
+        return inner(msgPack).0
     }
     public init(msgPack data:Data) {
         self = SION.parse(msgPack:data)
     }
     public var msgPack:Foundation.Data {
         typealias C = UInt8
+        typealias FD = Foundation.Data
         switch self {
-        case .Nil:              return Foundation.Data([0xc0])
-        case .Bool(let v):      return Foundation.Data([v ? 0xc3 : 0xc2])
+        case .Nil:              return FD([0xc0])
+        case .Bool(let v):      return FD([v ? 0xc3 : 0xc2])
         case .Int(let v):
             switch v {
             case -32...0x7f:
-                return Foundation.Data([UInt8(bitPattern:Int8(v))])
+                return FD([UInt8(bitPattern:Int8(v))])
             case -0x80...0x7f :
-                return Foundation.Data([0xd0, UInt8(bitPattern:Int8(v))])
+                return FD([0xd0, UInt8(bitPattern:Int8(v))])
             case -0x8000...0x7fff:
                 let (u0,u1) = unsafeBitCast(Int16(bigEndian: Int16(v)), to:(C,C).self)
-                return Foundation.Data([0xd1, u0,u1])
+                return FD([0xd1, u0,u1])
             case -0x8000_0000...0x7fff_ffff:
                 let (u0,u1,u2,u3) = unsafeBitCast(Int32(bigEndian: Int32(v)), to:(C,C,C,C).self)
-                return Foundation.Data([0xd2, u0,u1,u2,u3])
+                return FD([0xd2, u0,u1,u2,u3])
             default:
                 let (u0,u1,u2,u3,u4,u5,u6,u7) = unsafeBitCast(Swift.Int(bigEndian: v), to:(C,C,C,C,C,C,C,C).self)
-                return Foundation.Data([0xd3, u0,u1,u2,u3,u4,u5,u6,u7])
+                return FD([0xd3, u0,u1,u2,u3,u4,u5,u6,u7])
             }
         case .Double(let v):
             let u64 = UInt64(bigEndian: UInt64(v.bitPattern))
             let (u0,u1,u2,u3,u4,u5,u6,u7) = unsafeBitCast(u64, to:(C,C,C,C,C,C,C,C).self)
-            return Foundation.Data([0xcb, u0,u1,u2,u3,u4,u5,u6,u7])
-//        case .Double(let v):    return v.description
-//        case .Date(let v):      return v.timeIntervalSince1970.description
-//        case .String(let v):    return v.debugDescription
-//        case .Data(let v):      return "\"" + v.base64EncodedString() + "\""
-//        case .Ext(let v):       return "\"" + v.base64EncodedString() + "\""
+            return FD([0xcb, u0,u1,u2,u3,u4,u5,u6,u7])
+        case .String(let v):
+            let d = v.data(using:.utf8)!
+            switch d.count {
+            case 0...0b11111 :  // fixstr
+                return FD([UInt8(0b10100000 | d.count)]) + d
+            case 0x20...0xff :
+                return FD([0xd9, UInt8(d.count)]) + d
+            case 0x80...0xffff:
+                let (u1,u2) = unsafeBitCast(UInt16(bigEndian:UInt16(d.count)), to:(C,C).self)
+                return FD([0xda,u1,u2]) + d
+            case 0x10000...0xffff_ffff:
+                let (u1,u2,u3,u4) = unsafeBitCast(UInt32(bigEndian:UInt32(d.count)), to:(C,C,C,C).self)
+                return FD([0xdb,u1,u2,u3,u4]) + d
+            default:
+                fatalError("String too large!")
+            }
+        case .Data(let d):
+            switch d.count {
+            case 0...0xff :
+                return FD([0xc4, UInt8(d.count)]) + d
+            case 0x80...0xffff:
+                let (u1,u2) = unsafeBitCast(UInt16(bigEndian:UInt16(d.count)), to:(C,C).self)
+                return FD([0xc5,u1,u2]) + d
+            case 0x10000...0xffff_ffff:
+                let (u1,u2,u3,u4) = unsafeBitCast(UInt32(bigEndian:UInt32(d.count)), to:(C,C,C,C).self)
+                return FD([0xc6,u1,u2,u3,u4]) + d
+            default:
+                fatalError("Data too large!")
+            }
+        case .Array(let a):
+            switch a.count {
+            case 0...0xf:
+                var d = FD([UInt8(0b10010000 | a.count)])
+                a.forEach{ d += $0.msgPack }
+                return d
+            case 0x10...0xffff:
+                let (u1,u2) = unsafeBitCast(UInt16(bigEndian:UInt16(a.count)), to:(C,C).self)
+                var d = FD([0xdc,u1,u2])
+                a.forEach{ d += $0.msgPack }
+                return d
+            case 0x1000...0xffffffff:
+                let (u1,u2,u3,u4) = unsafeBitCast(UInt32(bigEndian:UInt32(a.count)), to:(C,C,C,C).self)
+                var d = FD([0xdd,u1,u2,u3,u4])
+                a.forEach{ d += $0.msgPack }
+                return d
+            default:
+                fatalError("Array too large!")
+            }
+        case .Dictionary(let m):
+            switch m.count {
+            case 0...0xf:
+                var d = FD([UInt8(0b10000000 | m.count)])
+                m.forEach{ d += $0.0.msgPack + $0.1.msgPack }
+                return d
+            case 0x10...0xffff:
+                let (u1,u2) = unsafeBitCast(UInt16(bigEndian:UInt16(m.count)), to:(C,C).self)
+                var d = FD([0xde,u1,u2])
+                m.forEach{ d += $0.0.msgPack + $0.1.msgPack }
+                return d
+            case 0x1000...0xffffffff:
+                let (u1,u2,u3,u4) = unsafeBitCast(UInt32(bigEndian:UInt32(m.count)), to:(C,C,C,C).self)
+                var d = FD([0xdf,u1,u2,u3,u4])
+                m.forEach{ d += $0.0.msgPack + $0.1.msgPack }
+                return d
+            default:
+                fatalError("Map too large!")
+            }
         default:
             return Foundation.Data()
         }
