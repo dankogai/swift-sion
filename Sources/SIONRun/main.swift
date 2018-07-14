@@ -1,6 +1,8 @@
 import SION
 import Foundation
 
+#if true
+
 var sion:SION = [
     "nil":      nil,
     "bool":     true,
@@ -60,6 +62,23 @@ var sionString = """
 ]
 """
 debugPrint(SION(string:sionString))
+
+#endif
+
+#if false
+
+var dict = [SION:SION]()
+(0...0x1ffff).forEach{dict[SION($0.description)] = SION($0)}
+print(dict.count)
+var sion = SION.Dictionary(dict)
+print(sion.count)
+var msg = sion.msgPack
+print(msg)
+var sion2 = SION(msgPack: msg)
+print(sion2.count)
+print(sion2["131071"])
+
+#endif
 
 //debugPrint(SION.parse("[[1"))
 //debugPrint(SION.parse("[1]]"))
