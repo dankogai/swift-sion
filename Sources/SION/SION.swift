@@ -737,10 +737,11 @@ extension SION {
 }
 extension SION {
     public static func parse(msgPack:Data)->SION {
-        typealias I = Swift.Int
-        typealias S = Swift.String
-        func inner(_ d:Data)->(SION, Int) {
-            let err = SION.Error(.notASIONType)
+        typealias I  = Swift.Int
+        typealias S  = Swift.String
+        typealias FD = Foundation.Data
+        let err = SION.Error(.notASIONType)
+        func inner(_ d:FD)->(SION, Int) {
             guard 0 < d.count else { return (err, 0) }
             switch d[0] {
             case 0x00...0x7f : return (.Int(Swift.Int(d[0])), 1)
@@ -798,7 +799,7 @@ extension SION {
                 let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
                 var (a, o) = ([SION](), 3)
                 for _ in 0..<len {
-                    let (v, c) = inner(Foundation.Data(d[o...]))
+                    let (v, c) = inner(FD(d[o...]))
                     o += c
                     a.append(v)
                 }
@@ -807,44 +808,44 @@ extension SION {
                 let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
                 var (a, o) = ([SION](), 5)
                 for _ in 0..<len {
-                    let (v, c) = inner(Foundation.Data(d[o...]))
+                    let (v, c) = inner(FD(d[o...]))
                     o += c
                     a.append(v)
                 }
                 return (.Array(a), o)
             case 0b10000000...0b10001111:   // fixmap
                 let len = I(d[0] & 0b1111)
-                var (m, o) = (SION([:]), 1)
+                var (m, o) = ([Key:Value](), 1)
                 for _ in 0..<len {
-                    let (k, ck) = inner(Foundation.Data(d[o...]))
+                    let (k, ck) = inner(FD(d[o...]))
                     o += ck
-                    let (v, cv) = inner(Foundation.Data(d[o...]))
+                    let (v, cv) = inner(FD(d[o...]))
                     o += cv
                     m[k] = v
                 }
-                return (m, o)
+                return (.Dictionary(m), o)
             case 0xde:
                 let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
-                var (m, o) = (SION([:]), 3)
+                var (m, o) = ([Key:Value](), 3)
                 for _ in 0..<len {
-                    let (k, ck) = inner(Foundation.Data(d[o...]))
+                    let (k, ck) = inner(FD(d[o...]))
                     o += ck
-                    let (v, cv) = inner(Foundation.Data(d[o...]))
+                    let (v, cv) = inner(FD(d[o...]))
                     o += cv
                     m[k] = v
                 }
-                return (m, o)
+                return (.Dictionary(m), o)
             case 0xdf:
                 let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
-                var (m, o) = (SION([:]), 5)
+                var (m, o) = ([Key:Value](), 5)
                 for _ in 0..<len {
-                    let (k, ck) = inner(Foundation.Data(d[o...]))
+                    let (k, ck) = inner(FD(d[o...]))
                     o += ck
-                    let (v, cv) = inner(Foundation.Data(d[o...]))
+                    let (v, cv) = inner(FD(d[o...]))
                     o += cv
                     m[k] = v
                 }
-                return (m, o)
+                return (.Dictionary(m), o)
             case 0xd4:
                 return (.Ext(d[0..<3]), 3)
             case 0xd5:
