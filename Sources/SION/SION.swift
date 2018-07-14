@@ -374,7 +374,7 @@ extension SION {
                 o[key] = newValue
                 self = .Dictionary(o)
             default:
-                fatalError("\"\(self)\" is not an object")
+                fatalError("\"\(self)\" is not a dictionary")
             }
         }
     }
@@ -750,47 +750,59 @@ extension SION {
             case 0xc2: return (.Bool(false), 1)
             case 0xc3: return (.Bool(true),  1)
             case 0xe0...0xff : return (.Int(I(Swift.Int8(bitPattern:d[0]))), 1)
-            case 0xcc: return (.Int(Swift.Int(d[1])), 2)
-            case 0xca: return (
+            case 0xcc: return d.count < 2 ? (err, 0) :
+                (.Int(Swift.Int(d[1])), 2)
+            case 0xca: return d.count < 5 ? (err, 0) : (
                 .Double(Swift.Double(Float32(bitPattern:
                     UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))))), 5)
-            case 0xcb: return (
+            case 0xcb: return d.count < 9 ? (err, 0) : (
                 .Double(Swift.Double(bitPattern:
                     UInt64(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt64.self)))), 9)
-            case 0xcd: return (.Int(I(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self)))), 3)
-            case 0xce: return (
+            case 0xcd: return d.count < 3 ? (err, 0) :
+                    (.Int(I(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self)))), 3)
+            case 0xce: return d.count < 5 ? (err, 0) : (
                 .Int(Swift.Int(UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self)))),5)
-            case 0xcf: return (
+            case 0xcf: return d.count < 9 ? (err, 0) : (
                  .Int(Swift.Int(bitPattern:UInt(bigEndian:unsafeBitCast(
                     (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self)))), 9)
-            case 0xd0: return ( .Int(I(Int8(bitPattern:d[1]))), 2)
-            case 0xd1: return ( .Int(I(Int16(bigEndian:unsafeBitCast((d[1],d[2]), to:Int16.self)))), 3)
-            case 0xd2: return ( .Int(I(Int32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:Int32.self)))), 5)
-            case 0xd3: return ( .Int(I(bitPattern:UInt(bigEndian:unsafeBitCast(
+            case 0xd0: return d.count < 2 ? (err, 0) :
+                ( .Int(I(Int8(bitPattern:d[1]))), 2)
+            case 0xd1: return d.count < 3 ? (err, 0) :
+                ( .Int(I(Int16(bigEndian:unsafeBitCast((d[1],d[2]), to:Int16.self)))), 3)
+            case 0xd2: return d.count < 5 ? (err, 0) :
+                ( .Int(I(Int32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:Int32.self)))), 5)
+            case 0xd3: return d.count < 9 ? (err, 0) :
+                ( .Int(I(bitPattern:UInt(bigEndian:unsafeBitCast(
                     (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self)))), 9)
             case 0b10100000...0b10111111:   // fixstr
                 let c = d[0] & 0b11111
-                return (.String(S(data:d[1...I(c)], encoding:.utf8)!), I(c)+1)
+                return d.count < I(c)+1 ? (err, 0) :
+                    (.String(S(data:d[1...I(c)], encoding:.utf8)!), I(c)+1)
             case 0xd9:
-                return (.String(S(data:d[2...I(d[1])+1], encoding:.utf8)!), I(d[1])+2)
+                return d.count < I(d[1])+2 ? (err, 0) :
+                    (.String(S(data:d[2...I(d[1])+1], encoding:.utf8)!), I(d[1])+2)
             case 0xda:
                 let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
-                return (.String(S(data:d[3...I(len)+1], encoding:.utf8)!), I(len)+3)
+                return d.count < I(len)+3 ? (err, 0) :
+                    (.String(S(data:d[3...I(len)+1], encoding:.utf8)!), I(len)+3)
             case 0xdb:
                 let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
-                return (.String(S(data:d[5...I(len)+1], encoding:.utf8)!), I(len)+5)
-            case 0xc4: return (.Data(d[1..<I(d[1])]), I(d[1])+1)
+                return d.count < I(len)+5 ? (err, 0) :
+                    (.String(S(data:d[5...I(len)+1], encoding:.utf8)!), I(len)+5)
+            case 0xc4: return d.count < I(d[1])+1 ? (err, 0) :
+                (.Data(d[1..<I(d[1])]), I(d[1])+1)
             case 0xc5:
                 let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
-                return (.Data(d[3..<I(len)]), I(len)+3)
+                return d.count < I(len)+3 ? (err, 0) : (.Data(d[3..<I(len)]), I(len)+3)
             case 0xc6:
                 let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
-                return (.Data(d[5..<I(len)]), I(len)+5)
+                return d.count < I(len)+5 ? (err, 0) : (.Data(d[5..<I(len)]), I(len)+5)
             case 0b10010000...0b10011111:   // fixarray
                 let len = I(d[0] & 0b1111)
                 var (a, o) = ([SION](), 1)
                 for _ in 0..<len {
-                    let (v, c) = inner(Foundation.Data(d[o...]))
+                    let (v, c) = inner(FD(d[o...]))
+                    if v == err { return (err, 0) }
                     o += c
                     a.append(v)
                 }
@@ -800,6 +812,7 @@ extension SION {
                 var (a, o) = ([SION](), 3)
                 for _ in 0..<len {
                     let (v, c) = inner(FD(d[o...]))
+                    if v == err { return (err, 0) }
                     o += c
                     a.append(v)
                 }
@@ -809,6 +822,7 @@ extension SION {
                 var (a, o) = ([SION](), 5)
                 for _ in 0..<len {
                     let (v, c) = inner(FD(d[o...]))
+                    if v == err { return (err, 0) }
                     o += c
                     a.append(v)
                 }
@@ -829,8 +843,10 @@ extension SION {
                 var (m, o) = ([Key:Value](), 3)
                 for _ in 0..<len {
                     let (k, ck) = inner(FD(d[o...]))
+                    if k == err { return (err, 0) }
                     o += ck
                     let (v, cv) = inner(FD(d[o...]))
+                    if v == err { return (err, 0) }
                     o += cv
                     m[k] = v
                 }
@@ -840,8 +856,10 @@ extension SION {
                 var (m, o) = ([Key:Value](), 5)
                 for _ in 0..<len {
                     let (k, ck) = inner(FD(d[o...]))
+                    if k == err { return (err, 0) }
                     o += ck
                     let (v, cv) = inner(FD(d[o...]))
+                    if v == err { return (err, 0) }
                     o += cv
                     m[k] = v
                 }
