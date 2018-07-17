@@ -611,14 +611,16 @@ extension SION : CodingKey {
     }
 }
 extension SION : Codable {
-    typealias CK = Swift.String
+    typealias SB    = Swift.Bool
+    typealias SDbl  = Swift.Double
+    typealias SInt  = Swift.Int
+    typealias SStr  = Swift.String
+    typealias FData = Foundation.Data
+    typealias FDate = Foundation.Date
     private static let codableTypes:[Codable.Type] = [
-        [CK:Value].self, [Value].self,
-        Swift.String.self,
-        Swift.Bool.self,
-        Swift.UInt.self, Swift.Int.self,
-        Swift.Double.self, Swift.Float.self,
-        Foundation.Data.self, Foundation.Date.self,
+        [SStr:Value].self, [Value].self, [Key:Value].self,
+        SStr.self, SB.self, UInt.self, SInt.self,
+        SDbl.self, Float.self, FData.self, FDate.self,
         UInt64.self, UInt32.self, UInt16.self, UInt8.self,
         Int64.self,  Int32.self,  Int16.self,  Int8.self,
     ]
@@ -626,23 +628,24 @@ extension SION : Codable {
         if let c = try? decoder.singleValueContainer(), !c.decodeNil() {
             for type in SION.codableTypes {
                 switch type {
-                case let t as Swift.Bool.Type:  if let v = try? c.decode(t) { self = .Bool(v); return }
+                case let t as Bool.Type:        if let v = try? c.decode(t) { self = .Bool(v); return }
                 case let t as Int.Type:         if let v = try? c.decode(t) { self = .Int(v); return }
-                case let t as Int8.Type:        if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
-                case let t as Int32.Type:       if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
-                case let t as Int64.Type:       if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
-                case let t as UInt.Type:        if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
-                case let t as UInt8.Type:       if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
-                case let t as UInt16.Type:      if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
-                case let t as UInt32.Type:      if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
-                case let t as UInt64.Type:      if let v = try? c.decode(t) { self = .Int(Swift.Int(v)); return }
-                case let t as Float.Type:       if let v = try? c.decode(t) { self = .Double(Swift.Double(v)); return }
+                case let t as Int8.Type:        if let v = try? c.decode(t) { self = .Int(SInt(v)); return }
+                case let t as Int32.Type:       if let v = try? c.decode(t) { self = .Int(SInt(v)); return }
+                case let t as Int64.Type:       if let v = try? c.decode(t) { self = .Int(SInt(v)); return }
+                case let t as UInt.Type:        if let v = try? c.decode(t) { self = .Int(SInt(v)); return }
+                case let t as UInt8.Type:       if let v = try? c.decode(t) { self = .Int(SInt(v)); return }
+                case let t as UInt16.Type:      if let v = try? c.decode(t) { self = .Int(SInt(v)); return }
+                case let t as UInt32.Type:      if let v = try? c.decode(t) { self = .Int(SInt(v)); return }
+                case let t as UInt64.Type:      if let v = try? c.decode(t) { self = .Int(SInt(v)); return }
+                case let t as Float.Type:       if let v = try? c.decode(t) { self = .Double(SDbl(v)); return }
                 case let t as Double.Type:      if let v = try? c.decode(t) { self = .Double(v); return }
-                case let t as Swift.String.Type:if let v = try? c.decode(t) { self = .String(v); return }
-                case let t as Foundation.Date.Type: if let v = try? c.decode(t) { self = .Date(v); return }
-                case let t as Foundation.Data.Type: if let v = try? c.decode(t) { self = .Data(v); return }
+                case let t as String.Type:      if let v = try? c.decode(t) { self = .String(v); return }
+                case let t as FDate.Type:       if let v = try? c.decode(t) { self = .Date(v); return }
+                case let t as FData.Type:       if let v = try? c.decode(t) { self = .Data(v); return }
                 case let t as [Value].Type:     if let v = try? c.decode(t) { self = .Array(v); return }
-                case let t as [CK:Value].Type:  if let v = try? c.decode(t) {
+                case let t as [Key:Value].Type: if let v = try? c.decode(t) { self = .Dictionary(v); return }
+                case let t as [SStr:Value].Type:if let v = try? c.decode(t) {
                     var o = [Key:Value]()
                     v.forEach{ o[SION($0.0)] = $0.1 }
                     self = .Dictionary(o)
@@ -666,8 +669,7 @@ extension SION : Codable {
         case .Date(let v):      try sc.encode(v)
         case .Ext(let v):       try sc.encode(v)
         case .Array(let v):     try sc.encode(v)
-        case .Dictionary(let v):
-            // try sc.encode(v)
+        case .Dictionary(let v):    // try sc.encode(v)
             // currently Encodable accepts string keys or int keys :-(
             var o = [Swift.String:Value]()
             v.forEach{ o[$0.0.stringValue] = $0.1 }
