@@ -224,7 +224,11 @@ extension SION {
         case .Dictionary(let o):
             let k = o.keys.map   { $0.nsObject as! NSCopying }
             let v = o.values.map { $0.nsObject }
+            #if canImport(Darwin)
             return NSDictionary(objects: v, forKeys: k)
+            #else
+            return NSDictionary(objects: v, forKeys: k as! [NSObject]) // as! need in Linux
+            #endif
         default:
             fatalError()
         }

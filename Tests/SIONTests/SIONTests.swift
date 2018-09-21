@@ -50,5 +50,6 @@ final class SIONTests: XCTestCase {
         ("testBasic",   testBasic),
         ("testCodable", testCodable),
         ("testMsgPack", testMsgPack),
+        ("testHash",    testHash)
     ]
 }

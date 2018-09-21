@@ -1,7 +1,7 @@
 import XCTest
 
-import JSONTests
+import SIONTests
 
 var tests = [XCTestCaseEntry]()
-tests += JSONTests.allTests()
+tests += SIONTests.allTests()
 XCTMain(tests)
