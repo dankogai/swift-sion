@@ -9,15 +9,6 @@
 import Foundation
 
 public indirect enum SION:Equatable {
-    public enum SIONError : Equatable {
-        case notASIONType
-        case notIterable(SION.ContentType)
-        case notSubscriptable(SION.ContentType)
-        case indexOutOfRange(SION.Index)
-        case keyNonexistent(SION.Key)
-        case nsError(NSError)
-        case error(Swift.String)
-    }
     public typealias Key    = SION
     public typealias Value  = SION
     public typealias Index  = Int
@@ -686,6 +677,17 @@ extension SION : Codable {
         default:
             break
         }
+    }
+}
+extension SION {
+    public enum SIONError : Equatable {
+        case notASIONType
+        case notIterable(SION.ContentType)
+        case notSubscriptable(SION.ContentType)
+        case indexOutOfRange(SION.Index)
+        case keyNonexistent(SION.Key)
+        case nsError(NSError)
+        case error(Swift.String)
     }
 }
 extension SION.SIONError : CustomStringConvertible {
