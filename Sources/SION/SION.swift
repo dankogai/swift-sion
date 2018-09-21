@@ -34,19 +34,24 @@ public indirect enum SION:Equatable {
     case Dictionary([Key:Value])
 }
 extension SION : Hashable {
-    public var hashValue: Int {
+    public func hash(into hasher: inout Hasher) {
         switch self {
-        case .Error(let m):         fatalError("\(m)")
-        case .Nil:                  return NSNull().hashValue
-        case .Bool(let v):          return v.hashValue
-        case .Int(let v):           return v.hashValue
-        case .Double(let v):        return v.hashValue
-        case .Date(let v):          return v.hashValue
-        case .String(let v):        return v.hashValue
-        case .Data(let v):          return v.hashValue
-        case .Ext(let v):           return v.hashValue
-        case .Array(let v):         return "\(v)".hashValue // will be fixed in Swift 4.2
-        case .Dictionary(let v):    return "\(v)".hashValue // will be fixed in Swift 4.2
+        case .Error(let m):     fatalError("\(m)")
+        case .Nil:              NSNull().hash(into:&hasher)
+        case .Bool(let v):      v.hash(into:&hasher)
+        case .Int(let v):       v.hash(into:&hasher)
+        case .Double(let v):    v.hash(into:&hasher)
+        case .Date(let v):      v.hash(into:&hasher)
+        case .String(let v):    v.hash(into:&hasher)
+        case .Data(let v):      v.hash(into:&hasher)
+        case .Ext(let v):       v.hash(into:&hasher)
+        case .Array(let a):     for e in a {
+            e.hash(into:&hasher)
+            }
+        case .Dictionary(let d):for k in d.keys.sorted(by:{$0.hashValue < $1.hashValue}) {
+            k.hash(into:&hasher)
+            d[k]!.hash(into:&hasher)
+            }
         }
     }
 }

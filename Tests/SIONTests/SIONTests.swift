@@ -43,6 +43,9 @@ final class SIONTests: XCTestCase {
         let data = sion0.msgPack
         XCTAssertEqual(SION(msgPack: data), sion0)
     }
+    func testHash() {
+        XCTAssertEqual(SION(["zero":0,"one":1]).hashValue, SION(["one":1,"zero":0]).hashValue)
+    }
     static var allTests = [
         ("testBasic",   testBasic),
         ("testCodable", testCodable),
