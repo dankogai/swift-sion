@@ -563,7 +563,7 @@ $ scripts/run-repl.sh
 or
 
 ```sh
-$ swift build && swift -I.build/debug -L.build/debug -lJSON
+$ swift build && swift -I.build/debug -L.build/debug -lSION
 
 ```
 
