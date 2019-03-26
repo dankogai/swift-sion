@@ -557,6 +557,12 @@ $ swift build
 Simply
 
 ```sh
+$ swift run --repl
+```
+
+or
+
+```sh
 $ scripts/run-repl.sh
 ```
 
@@ -571,7 +577,7 @@ and in your repl,
 
 ```sh
   1> import SION
-  2> let json:SION = ["swift":["safe","fast","expressive"]]
+  2> let sion:SION = ["swift":["safe","fast","expressive"]]
 sion: SION.SION = Object {
   Object = 1 key/value pair {
     [0] = {
