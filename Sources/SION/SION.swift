@@ -235,6 +235,9 @@ extension SION {
     public init(json:String) {
         self.init(jsonData:json.data(using:.utf8)!)
     }
+    public init(jsonString:String) {
+        self.init(jsonData:jsonString.data(using:.utf8)!)
+    }
     public init(jsonUrlString:String) {
         if let url = URL(string: jsonUrlString) {
             self = SION(jsonURL:url)
@@ -401,7 +404,7 @@ extension SION : Sequence {
                 return a.count <= i ? nil : (SION.Int(i), a[i])
             }
         case .Dictionary(let o):
-            var kv = o.map{ $0 }
+            let kv = o.map{ $0 }
             var i = -1
             return AnyIterator {
                 i += 1

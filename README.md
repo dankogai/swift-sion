@@ -191,7 +191,7 @@ let jsonStr = """
     "url" : "https://github.com/dankogai/"
 }
 """
-SION(json:jsonStr)
+SION(jsonString:jsonStr)
 SION(jsonUrlString:"https://api.github.com")
 ```
 
