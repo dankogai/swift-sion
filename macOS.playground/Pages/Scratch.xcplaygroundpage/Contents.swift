@@ -17,4 +17,5 @@ debugPrint(SION(msgPack: msg))
 //SION(msgPack:Data([0xc1]))
 //Date(timeIntervalSince1970:0x1.6d276636baf32p+30)
 
+SION.parse(string:"1").number
 //: [Next](@next)

@@ -1,6 +1,6 @@
 
-[![Swift 4.2](https://img.shields.io/badge/swift-4.2-brightgreen.svg)](https://swift.org)
-[![MIT LiCENSE](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
+[![Swift 4.2](https://img.shields.io/badge/swift-4.2-blue.svg)](https://swift.org)
+[![MIT LiCENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![build status](https://secure.travis-ci.org/dankogai/swift-sion.png)](http://travis-ci.org/dankogai/swift-sion)
 
 # swift-sion
@@ -122,7 +122,7 @@ or add `"data"` later.
 #### from `String`
 
 ```swift
-let sionStr = """
+SION(string:"""
 [
     "array": [
         nil,
@@ -152,14 +152,13 @@ let sionStr = """
     "string": "漢字、カタカナ、ひらがなの入ったstring😇",
     "url": "https://github.com/dankogai/"
 ]
-"""
-SION(string:sionStr)
+""")
 ```
 
 #### from [JSON] string or JSON-emitting URL
 
 ```swift
-let jsonStr = """
+SION(jsonString:"""
 {
     "array" : [
     null,
@@ -190,8 +189,10 @@ let jsonStr = """
     "string" : "漢字、カタカナ、ひらがなの入ったstring😇",
     "url" : "https://github.com/dankogai/"
 }
-"""
-SION(jsonString:jsonStr)
+""")
+```
+
+```swift
 SION(jsonUrlString:"https://api.github.com")
 ```
 
@@ -260,19 +261,18 @@ SION(propertyList:plistXML.data(using:.utf8)!, format:.xml)
 
 ```swift
 import Foundation
-var msgData = Data([
+SION(msgPack: Data([
     0x82,0xa7,0x63,0x6f,0x6d,0x70,0x61,0x63,
     0x74,0xc3,0xa6,0x73,0x63,0x68,0x65,0x6d,
     0x61,0x00
-])
-SION(msgPack:msgData)   // ["compact":true,"schema":0]
+]))   // ["compact":true,"schema":0]
 ```
 
 ### Conversion
 
 once you have the SION object, converting to other formats is simple.
 
-to SION string, all you need is stringify it.  .description or "\(json)" would be enough.
+to SION string, all you need is stringify it.  `.description` or `"\(json)"` should be enough.
 
 ```swift
 sion.description
@@ -285,7 +285,7 @@ If you need `JSON`, simply call `.json`.
 sion.json
 ```
 
-And `.msgPack` gives you [msgPack] Data:
+And `.msgPack` gives you [msgPack] in `Data`.
 
 ```swift
 sion.msgPack
@@ -339,7 +339,7 @@ In which case you do this instead.
 sion[3].string = one
 ```
 
-They are all getters and setters.
+They are all getters and setters…
 
 ```swift
 sion[1].bool       = true
@@ -348,6 +348,14 @@ sion[3].double     = 1.0
 sion[4].string     = "one"
 sion[5].array      = [1]
 sion[6].dictionary = ["one":1]
+```
+
+except for `.number` which is a getter-only property that retrieves numerical value in `Double` or `nil` if not numeric.
+
+```swift
+swift[1].number   // nil
+swift[2].number!  // 1.0 - Int is cast to Double
+swift[3].number!  // 1.0
 ```
 
 As a getter they are optional which returns `nil` when the type mismaches.
@@ -468,7 +476,6 @@ extension SION {
 ```
 
 ### Protocol Conformance
-
 
 * `SION` is `Equatable` so you can check if two JSONs are the same.
 
