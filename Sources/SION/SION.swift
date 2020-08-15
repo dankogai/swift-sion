@@ -3,7 +3,7 @@
 //  SION
 //
 //  Created by Dan Kogai on 7/15/14.
-//  Copyright (c) 2018 Dan Kogai. All rights reserved.
+//  Copyright (c) 2018-2020 Dan Kogai. All rights reserved.
 //
 
 import Foundation
@@ -301,6 +301,19 @@ extension SION {
     public var double:Double? {
         get { switch self { case .Double(let v):return v default: return nil } }
         set { self = .Double(newValue!) }
+    }
+    /// read only
+    public var number:Double? {
+       get {
+         switch self {
+           case .Double(let v):
+             return v
+           case .Int(let v):
+             return Swift.Double(v)
+           default:
+             return nil
+           }
+       }
     }
     public var date:Date? {
         get { switch self { case .Date(let v):return v default: return nil } }
