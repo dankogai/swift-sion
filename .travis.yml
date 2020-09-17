@@ -6,7 +6,7 @@ matrix:
 #      sudo: required
     - os: osx
       language: objective-c
-      osx_image: xcode11.7
+      osx_image: xcode12
 script:
   - swift test -c release -Xswiftc -enable-testing
 before_install:
