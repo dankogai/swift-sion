@@ -47,7 +47,9 @@ extension SION : Hashable {
     }
 }
 extension SION : CustomStringConvertible, CustomDebugStringConvertible {
-    public func toString(depth d:Int, separator s:String, terminator t:String, sortedKey:Bool=false)->String {
+    public func toString(
+        depth d:Int, separator s:String, terminator t:String, sortedKey:Bool=false
+    )->String {
         let i = Swift.String(repeating:s, count:d)
         let g = s == "" ? "" : " "
         switch self {
@@ -68,14 +70,16 @@ extension SION : CustomStringConvertible, CustomDebugStringConvertible {
                 + i + "]" + (d == 0 ? t : "")
         case .Dictionary(let o):
             guard !o.isEmpty else { return "[:]" }
-            let a = sortedKey ? o.map{ $0 }.sorted{ $0.0.description < $1.0.description } : o.map{ $0 }
+            let a = sortedKey ? o.map{ $0 }.sorted{ $0.0.description < $1.0.description }
+                : o.map{ $0 }
+            let kvs = a.map {
+                $0.toString(depth:d+1, separator:s, terminator:t, sortedKey:sortedKey)
+                + g + ":" + g
+                + $1.toString(depth:d+1, separator:s, terminator:t, sortedKey:sortedKey)
+                }.map{ i + s + $0 }
             return "[" + t
-                + a.map {
-                    $0.toString(depth:d+1, separator:s, terminator:t, sortedKey:sortedKey)
-                    + g + ":" + g
-                    + $1.toString(depth:d+1, separator:s, terminator:t, sortedKey:sortedKey)
-                    }.map{ i + s + $0 }.joined(separator:"," + t) + t
-                + i + "]" + (d == 0 ? t : "")
+                + kvs.joined(separator:"," + t) + i
+                + "]" + (d == 0 ? t : "")
         }
     }
     public func toString(space:Int=0)->String {
