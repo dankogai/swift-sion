@@ -1,5 +1,5 @@
 
-[![Swift 4.2](https://img.shields.io/badge/swift-4.2-blue.svg)](https://swift.org)
+[![Swift 4.2](https://img.shields.io/badge/swift-5-blue.svg)](https://swift.org)
 [![MIT LiCENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![build status](https://secure.travis-ci.org/dankogai/swift-sion.png)](http://travis-ci.org/dankogai/swift-sion)
 
@@ -664,5 +664,5 @@ in your code.  Enjoy!
 
 ## Prerequisite
 
-Swift 4.2 or better, OS X or Linux to build.
+Swift 5 or better, OS X or Linux to build.
 
