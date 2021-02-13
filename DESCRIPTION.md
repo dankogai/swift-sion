@@ -1,40 +1,6 @@
 ## Description
 
-This module is both an introduction and a reference implementation of `SION`, a data serialization formatlike [JSON] but more capable and expressive . As JSON is originated from a {ECMA,Java}Script literal, SION is originated from a Swift literal.  So like JSON was named after JavaScript Object Notation, SION was named after Swift Interchangeable Object Notation.  But as its name suggests, SION is language independent like JSON.
-
-SION can serialize anything JSON can plus:
-
-* support `Data`
-* support `Date`
-* non-`String` keys in `Dictionary`
-* `Int` and `Double` distinctively, not `Number`.  Therefore you can exchange 64-bit integers losslessly.
-* // comment support!
-* Roughly equvalent to [MsgPack] in terms of capability.
-  * [MsgPack] is a binary serialization while `SION` is a text serialization.
-
-[JSON]: https://json.org
-[MsgPack]: https://msgpack.org
-
-| Type | SION | MsgPack | JSON | Property List | Comment |
-|--------|---------------|-------|---|---|---|
-| `Nil`           | ✔︎ | ✔︎ | ✔︎ | ❌ | plist: .binary only |
-| `Bool`          | ✔︎ | ✔︎ | ✔︎ | ✔︎ |
-| `Int`           | ✔︎ | ✔︎ | ❌ | ✔︎ | 64bit |
-| `Double`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ | JSON's Number |
-| `String`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ | utf-8 encoded |
-| `Data`          | ✔︎ | ✔︎ | ❌ | ✔︎ | binary blob |
-| `Date`          | ✔︎ | ✔︎ | ❌ | ✔︎ | .timeIntervalSince1970 in `Double` |
-| `[Self]`        | ✔︎ | ✔︎ | ✔︎ | ✔︎ | aka Array |
-| `[String:Self]` | ✔︎ | ✔︎ | ✔︎ | ✔︎ | aka Object, Map…|
-| `[Self:Self]`   | ✔︎ | ✔︎ | ❌ | ❌ |non-`String` keys|
-| `Ext`           | ✔︎ | ✔︎ | ❌ | ❌ |msgpack extension|
-
-
-* As you see `SION` is upper-compatible with JSON and Property List.  As a matter of fact, `SION` can {,de}serialize JSON and Property List.
-
-As for the format details, see the main page of [SION].
-
-## What this module provides
+### What this module provides
 
 * The `SION` Type which can store and manipulate SION data.
 * conversion between
