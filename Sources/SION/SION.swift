@@ -50,8 +50,9 @@ extension SION : CustomStringConvertible, CustomDebugStringConvertible {
     public func toString(
         depth d:Int, separator s:String, terminator t:String, sortedKey:Bool=false
     )->String {
-        let i = Swift.String(repeating:s, count:d)
-        let g = s == "" ? "" : " "
+        let indent = Swift.String(repeating:s, count:d)
+        let gap = s == "" ? "" : " "
+        let tail = d == 0 ? t : ""
         switch self {
         case .Error(let m):     return ".Error(\"\(m)\")"
         case .Nil:              return "nil"
@@ -66,20 +67,20 @@ extension SION : CustomStringConvertible, CustomDebugStringConvertible {
             guard !a.isEmpty else { return "[]" }
             return "[" + t
                 + a.map{ $0.toString(depth:d+1, separator:s, terminator:t, sortedKey:sortedKey) }
-                    .map{ i + s + $0 }.joined(separator:","+t) + t
-                + i + "]" + (d == 0 ? t : "")
+                    .map{ indent + s + $0 }.joined(separator:"," + t) + t
+                + indent + "]" + tail
         case .Dictionary(let o):
             guard !o.isEmpty else { return "[:]" }
             let a = sortedKey ? o.map{ $0 }.sorted{ $0.0.description < $1.0.description }
                 : o.map{ $0 }
             let kvs = a.map {
                 $0.toString(depth:d+1, separator:s, terminator:t, sortedKey:sortedKey)
-                + g + ":" + g
+                + gap + ":" + gap
                 + $1.toString(depth:d+1, separator:s, terminator:t, sortedKey:sortedKey)
-                }.map{ i + s + $0 }
+                }.map{ indent + s + $0 }
             return "[" + t
-                + kvs.joined(separator:"," + t) + i
-                + "]" + (d == 0 ? t : "")
+                + kvs.joined(separator:"," + t) + t + indent
+                + "]" + tail
         }
     }
     public func toString(space:Int=0)->String {
