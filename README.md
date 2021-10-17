@@ -1,7 +1,7 @@
 
 [![Swift 4.2](https://img.shields.io/badge/swift-5-blue.svg)](https://swift.org)
 [![MIT LiCENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![build status](https://secure.travis-ci.org/dankogai/swift-sion.png)](http://travis-ci.org/dankogai/swift-sion)
+[![build status](https://app.travis-ci.com/dankogai/swift-sion.svg)](https://app.travis-ci.com/github/dankogai/swift-sion)
 
 # swift-sion
 
