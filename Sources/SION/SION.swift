@@ -3,7 +3,7 @@
 //  SION
 //
 //  Created by Dan Kogai on 7/15/14.
-//  Copyright (c) 2018-2020 Dan Kogai. All rights reserved.
+//  Copyright (c) 2018-2021 Dan Kogai. All rights reserved.
 //
 
 import Foundation
@@ -421,8 +421,8 @@ extension SION : Sequence {
                 i += 1
                 return a.count <= i ? nil : (SION.Int(i), a[i])
             }
-        case .Dictionary(let o):
-            let kv = o.map{ $0 }
+        case .Dictionary(let d):
+            let kv = d.map{ $0 }
             var i = -1
             return AnyIterator {
                 i += 1
