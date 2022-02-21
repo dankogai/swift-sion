@@ -22,7 +22,7 @@ sion["ext"]  = .Ext("1NTU")
 //: …or String…
 
 let sionStr = """
-[
+[   // unlike JSON comments are supported. // up to newline
     "array" : [
         nil,
         true,
