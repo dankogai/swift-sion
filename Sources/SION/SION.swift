@@ -489,7 +489,7 @@ extension SION {
         let s_string  = "\"(.*?)(?<!\\\\)\""
         let s_base64  = "(?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?"
         let s_dataext = ".(?:Data|Ext)\\(\"" + s_base64 + "\"\\)"
-        let s_comment = "//.*?(?:\n|\r|\r\n)"
+        let s_comment = "//[^\n\r]*?"
         let s_all = [ "\\[", "\\]", ":", ",",
                       s_null, s_bool, s_date, s_double, s_int, s_dataext, s_string, s_comment
             ].joined(separator:"|")
