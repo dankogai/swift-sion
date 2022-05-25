@@ -1,7 +1,7 @@
 
 [![Swift 4.2](https://img.shields.io/badge/swift-5-blue.svg)](https://swift.org)
 [![MIT LiCENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![build status](https://app.travis-ci.com/dankogai/swift-sion.svg)](https://app.travis-ci.com/github/dankogai/swift-sion)
+[![CI via GitHub Actions](https://github.com/dankogai/swift-sion/actions/workflows/swift.yml/badge.svg)](https://github.com/dankogai/swift-sion/actions/workflows/swift.yml)
 
 # swift-sion
 
