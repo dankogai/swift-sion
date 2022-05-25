@@ -1,4 +1,4 @@
-name: Swift
+name: CI via GitHub Actions
 
 on:
   push:
