@@ -8,7 +8,9 @@ on:
 
 jobs:
   build:
-    runs-on: [macos-latest, ubuntu-latest]
+
+    runs-on: macos-latest
+
     steps:
     - uses: actions/checkout@v3
     - name: Run tests
