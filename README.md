@@ -94,13 +94,6 @@ or
 $ scripts/run-repl.sh
 ```
 
-or
-
-```sh
-$ swift build && swift -I.build/debug -L.build/debug -lSION
-
-```
-
 and in your repl,
 
 ```sh
