@@ -9,6 +9,11 @@
   * [MsgPack] - from and to
   * [YAML] - output only
 
+[JSON]: https://json.org
+[Property List]: https://en.wikipedia.org/wiki/Property_list
+[MsgPack]: https://msgpack.org
+[YAML]: http://yaml.org
+
 ### Initialization
 
 You can build SION directly as a literal.
@@ -132,8 +137,6 @@ SION(jsonUrlString:"https://api.github.com")
 
 #### from [Property List]
 
-[Property List]: https://en.wikipedia.org/wiki/Property_list
-
 ```swift
 let plistXML = """
 <?xml version="1.0" encoding="UTF-8"?>
@@ -230,8 +233,6 @@ sion.msgPack
 Since JSON does not support `Date` and `Data`, `.json` converts `Date` to `Number` and `Date` to Base64-encoded `String` respectively.  `.json` also coverts all non-`String` keys to `String`.  Do not expect JSON to round trip.  It is less expressive than SION.
 
 You can also get [YAML] via `.yaml`.
-
-[YAML]: http://yaml.org
 
 ```swift
 sion.yaml
