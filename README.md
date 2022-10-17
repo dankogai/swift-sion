@@ -7,7 +7,7 @@
 
 [SION] handler in Swift.
 
-[SION]: http://dankogai.github.com/SION/
+[SION]: http://dankogai.github.io/SION/
 
 ## Synopsis
 
