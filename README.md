@@ -131,6 +131,9 @@ $ scripts/prep-xcode
 
 And the Workspace opens up for you with Playground on top.  The playground is written as a manual.  To run, make sure to set location to  **Relative to Playground** in **Playground Setting**.
 
+![](img/playground-settings.png)
+![](img/playground-settings-location.png)
+
 ### iOS and Swift Playground
 
 Unfortunately Swift Package Manager does not support iOS.  To make matters worse Swift Playgrounds does not support modules.  But don't worry.  This module is so compact all you need is copy [SION.swift].
