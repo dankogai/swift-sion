@@ -129,7 +129,7 @@ Xcode project is deliberately excluded from the repository because it should be 
 $ scripts/prep-xcode
 ```
 
-And the Workspace opens up for you with Playground on top.  The playground is written as a manual.  To run, make sure to check **Build Active Scheme** in **Playground Setting**.
+And the Workspace opens up for you with Playground on top.  The playground is written as a manual.  To run, make sure to set location to  **Relative to Playground** in **Playground Setting**.
 
 ### iOS and Swift Playground
 
