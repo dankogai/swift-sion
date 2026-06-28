@@ -136,13 +136,13 @@ extension SION : CustomStringConvertible, CustomDebugStringConvertible {
         return self.toJSON()
     }
 }
-extension Data:ExpressibleByStringLiteral {
+extension Foundation.Data:Swift.ExpressibleByStringLiteral {
     public typealias StringLiteralType = String
     public init(stringLiteral value:StringLiteralType) {
         self.init(base64Encoded:value, options:[.ignoreUnknownCharacters])!
     }
 }
-extension Date:ExpressibleByFloatLiteral {
+extension Foundation.Date:Swift.ExpressibleByFloatLiteral {
     public typealias FloatLiteralType = Double
     public init(floatLiteral value:FloatLiteralType) {
         self.init(timeIntervalSince1970: value)
