@@ -1,5 +1,5 @@
-
-[![Swift 4.2](https://img.shields.io/badge/swift-5-blue.svg)](https://swift.org)
+[![Swift 5](https://img.shields.io/badge/swift-5-blue.svg)](https://swift.org)
+[![Swift 6](https://img.shields.io/badge/swift-6-blue.svg)](https://swift.org)
 [![MIT LiCENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI via GitHub Actions](https://github.com/dankogai/swift-sion/actions/workflows/swift.yml/badge.svg)](https://github.com/dankogai/swift-sion/actions/workflows/swift.yml)
 
