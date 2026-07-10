@@ -181,6 +181,7 @@ extension SION {
     /// NSObject -> SION
     public init(nsObject:Any?) {
         switch nsObject {
+        case is NSNull:   self = .Nil
         // Be careful! SIONSerialization renders bool as NSNumber use .objcType to tell the difference
         case let a as NSNumber:
             switch Swift.String(cString:a.objCType) {
@@ -188,7 +189,6 @@ extension SION {
             case "s","S","l","L","q","Q":   self = .Int(a as! Int)
             default:        self = .Double(a as! Double)
             }
-        case nil:               self = .Nil
         case let a as String:   self = .String(a)
         case let a as Date:     self = .Date(a)
         case let a as Data:     self = .Data(a)
@@ -199,7 +199,7 @@ extension SION {
             self = .Dictionary(o)
         case let a as [Swift.String:Any?]:
             var o = [Key:Value]()
-            a.forEach{ o[.String($0.0)] = SION(nsObject:$0.1) }
+            a.forEach{ o[.String($0.0)] = $0.1 == nil ? SION() : SION(nsObject:$0.1) }
             self = .Dictionary(o)
         default:
             self = .Error(.notASIONType)
