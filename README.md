@@ -134,26 +134,17 @@ And the Workspace opens up for you with Playground on top.  The playground is wr
 ![](img/playground-settings.png)
 ![](img/playground-settings-location.png)
 
-### iOS and Swift Playground
+### Swift Playgrounds
 
-Unfortunately Swift Package Manager does not support iOS.  To make matters worse Swift Playgrounds does not support modules.  But don't worry.  This module is so compact all you need is copy [SION.swift].
+Unfortunately Swift Package Manager does not work well with Swift Playgrounds even though it claims to support it (too many `error=22` :-).  But don't worry.  This module is so compact all you need is copy [SION.swift].
 
 [SION.swift]: Sources/SION/SION.swift
 
-In case of Swift Playgrounds just copy it under `Sources` folder.  If you are too lazy just run:
+In case of Swift Playgrounds just add it to one of the sources there.  In which case `import SION` is not necessary.
 
+![](img/playground-app.png)
 
-```sh
-$ scripts/ios-prep.sh
-```
-
-and `iOS/JSON.playground` is all set.  You do not have to `import JSON` therein.
-
-The playgoround is fully compatible with iOS.  Sync it via iCloud drive and enjoy!
-
-![](iOS/playgrounds.png)
-
-### From Your SwiftPM-Managed Projects
+### From Your SwiftPM-Supported Environments
 
 Add the following to the `dependencies` section:
 
