@@ -281,7 +281,7 @@ extension SION {
     }
 }
 extension SION {
-    public enum ContentType {
+    public enum ContentType { // nil is not a valid case identifier so null
         case error, null, bool, int, double, date, string, data, ext, array, dictionary
     }
     public var type:ContentType {
@@ -299,7 +299,7 @@ extension SION {
         case .Dictionary(_):    return .dictionary
         }
     }
-    public var isNil:Bool           { return type == .null }
+    public var isNil:Bool           { return self == .Nil }
     public var error:SIONError?     { switch self { case .Error(let v): return v default: return nil } }
     public var bool:Bool? {
         get { switch self { case .Bool(let v):  return v default: return nil } }
