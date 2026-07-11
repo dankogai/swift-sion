@@ -146,6 +146,16 @@ In case of Swift Playgrounds just add it to one of the sources there.  In which 
 
 ### From Your SwiftPM-Supported Environments
 
+#### via GUI
+
+Just add:
+
+`https://github.com/dankogai/swift-sion.git`
+
+via "Add Package Dependencies..." or "Add Package..." menu.
+
+#### via manually editing `Package.swift`
+
 Add the following to the `dependencies` section:
 
 ```swift
