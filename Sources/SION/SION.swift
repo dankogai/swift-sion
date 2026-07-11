@@ -169,7 +169,7 @@ extension SION :
     public init(stringLiteral value:String)     { self = .String(value) }
     public typealias ArrayLiteralElement = Value
     public init(_ value:[Value])                { self = .Array(value)  }
-    public init(arrayLiteral value:SION...)     { self = .Array(value)  }
+    public init(arrayLiteral value:Self...)     { self = .Array(value)  }
     public init(_ value:[Key:Value])            { self = .Dictionary(value) }
     public init(dictionaryLiteral value:(Key,Value)...) {
         var o = [Key:Value]()
@@ -247,7 +247,7 @@ extension SION {
         if let url = URL(string: jsonUrlString) {
             self = SION(jsonURL:url)
         } else {
-            self = SION.Nil
+            self = .Nil
         }
     }
     public init(jsonURL:URL) {
@@ -355,7 +355,7 @@ extension SION {
     }
 }
 extension SION {
-    public subscript(_ idx:Index)->SION {
+    public subscript(_ idx:Index)->Self {
         get {
             switch self {
             case .Error(_):
@@ -384,7 +384,7 @@ extension SION {
             }
         }
     }
-    public subscript(_ key:Key)->SION {
+    public subscript(_ key:Key)->Self {
         get {
             switch self {
             case .Error(_):
@@ -407,7 +407,7 @@ extension SION {
     }
 }
 extension SION : Sequence {
-    public typealias Element = (key:SION,value:SION)  // for Sequence conformance
+    public typealias Element = (key:Self,value:Self)  // for Sequence conformance
     public typealias Iterator = AnyIterator<Element>
     public var count:Int {
         switch self {
@@ -419,13 +419,13 @@ extension SION : Sequence {
             return 0
         }
     }
-    public func makeIterator() -> AnyIterator<SION.Element> {
+    public func makeIterator() -> AnyIterator<Self.Element> {
         switch self {
         case .Array(let a):
             var i = -1
             return AnyIterator {
                 i += 1
-                return a.count <= i ? nil : (SION.Int(i), a[i])
+                return a.count <= i ? nil : (.Int(i), a[i])
             }
         case .Dictionary(let d):
             let kv = d.map{ $0 }
@@ -445,7 +445,7 @@ extension SION : Sequence {
             return ($0.0, value)
         }, depth)
     }
-    public func walk(depth:Int=0, visit:(SION)->SION)->SION {
+    public func walk(depth:Int=0, visit:(Self)->Self)->Self {
         return self.walk(depth:depth, collect:{ node,pairs,depth in
             switch node.type {
             case .array:
@@ -459,10 +459,10 @@ extension SION : Sequence {
             }
         }, visit:visit)
     }
-    public func walk(depth:Int=0, collect:(SION, [Element], Int)->SION)->SION {
+    public func walk(depth:Int=0, collect:(Self, [Element], Int)->Self)->Self {
         return self.walk(depth:depth, collect:collect, visit:{ $0 })
     }
-    public func pick(picker:(SION)->Bool)->SION {
+    public func pick(picker:(SION)->Bool)->Self {
         return self.walk{ node, pairs, depth in
             switch node.type {
             case .array:
@@ -479,7 +479,7 @@ extension SION : Sequence {
 }
 extension SION {
     /// parse string to SION
-    public static func parse(string:Swift.String)->SION {
+    public static func parse(string:Swift.String)->Self {
         let s_null = "nil"
         let s_bool = "true|false"
         let s_double = """
@@ -511,10 +511,10 @@ extension SION {
             }
             return tokens
         }
-        func toBool(_ s:String)->SION? {
+        func toBool(_ s:String)->Self? {
             return s == "true" ? .Bool(true) : s == "false" ? .Bool(false) : nil
         }
-        func toDouble(_ s:String)->SION? {
+        func toDouble(_ s:String)->Self? {
             guard let cr = reDouble.firstMatch(in: s, range: NSRange(0..<s.count)) else { return nil }
             let sign      = s[Range(cr.range(at:1), in:s)!]
             let magnitude = s[Range(cr.range(at:2), in:s)!]
@@ -522,7 +522,7 @@ extension SION {
             let double    = (sign == "-" ? -1.0 : +1.0) * Swift.Double(magnitude)!
             return .Double(double)
         }
-        func toInt(_ s:String)->SION? {
+        func toInt(_ s:String)->Self? {
             guard let cr = reInt.firstMatch(in: s, range: NSRange(0..<s.count)) else { return nil }
             var int = 0
             let sign      = s[Range(cr.range(at:1), in:s)!]
@@ -540,7 +540,7 @@ extension SION {
             }
             return .Int(sign == "-" ? -int : +int)
         }
-        func toDate(_ s:String)->SION? {
+        func toDate(_ s:String)->Self? {
             //                 0123456
             guard s.hasPrefix(".Date(") else { return nil }
             guard s.hasSuffix(")")      else { return nil }
@@ -549,16 +549,16 @@ extension SION {
             ss.removeLast(1)
             if let d = Swift.Double(ss) {
                 let date = Foundation.Date(timeIntervalSince1970: d)
-                return SION.Date(date)
+                return .Date(date)
             }
             return nil
         }
-        func toString(_ s:String)->SION? {
+        func toString(_ s:String)->Self? {
             if s.first != "\"" { return nil }
             if s.last  != "\"" { return nil }
             return SION(json:Swift.String(s))
         }
-        func toDataExt(_ s:String)->SION? {
+        func toDataExt(_ s:String)->Self? {
             //                             012345 6                          01234 5
             let isExt:Bool? = s.hasPrefix(".Data(\"") ? false : s.hasPrefix(".Ext(\"") ? true : nil
             if isExt == nil { return nil }
@@ -568,15 +568,15 @@ extension SION {
             ss.removeLast(2)
             // print(ss)
             if let data = Foundation.Data(base64Encoded:ss, options:[.ignoreUnknownCharacters]) {
-                return isExt! ? SION.Ext(data) : SION.Data(data)
+                return isExt! ? .Ext(data) : .Data(data)
             }
             return nil
         }
-        func toElement(_ s:Swift.String)->SION {
+        func toElement(_ s:Swift.String)->Self {
             return s == "nil" ? .Nil
                 : toBool(s) ?? toInt(s) ?? toDate(s) ?? toDouble(s) ?? toDataExt(s) ?? toString(s) ?? .Error(.notASIONType)
         }
-        func toCollection(_ tokens:[Swift.String])->SION {
+        func toCollection(_ tokens:[Swift.String])->Self {
             let isDictionary = 2 < tokens.count && tokens[2] == ":" || tokens[1] == ":"
             var elems = [SION]()
             var i = 1, d = 0
@@ -620,7 +620,7 @@ extension SION {
     }
     /// initialize from string
     public init(string:String) {
-        self = SION.parse(string:string)
+        self = .parse(string:string)
     }
 }
 extension SION : CodingKey {
@@ -653,7 +653,7 @@ extension SION : Codable {
     ]
     public init(from decoder: Decoder) throws {
         if let c = try? decoder.singleValueContainer(), !c.decodeNil() {
-            for type in SION.codableTypes {
+            for type in Self.codableTypes {
                 switch type {
                 case let t as Bool.Type:        if let v = try? c.decode(t) { self = .Bool(v); return }
                 case let t as Int.Type:         if let v = try? c.decode(t) { self = .Int(v); return }
@@ -682,7 +682,7 @@ extension SION : Codable {
                 }
             }
         }
-        self = SION.Nil
+        self = .Nil
     }
     public func encode(to encoder: Encoder) throws {
         var sc = encoder.singleValueContainer()
@@ -776,11 +776,11 @@ extension SION {
     }
 }
 extension SION {
-    public static func parse(msgPack:Data)->SION {
+    public static func parse(msgPack:Data)->Self {
         typealias I  = Swift.Int
         typealias S  = Swift.String
         typealias FD = Foundation.Data
-        let err = SION.Error(.notASIONType)
+        let err = Self.Error(.notASIONType)
         func inner(_ d:FD)->(SION, Int) {
             guard 0 < d.count else { return (err, 0) }
             switch d[0] {
@@ -950,7 +950,7 @@ extension SION {
         return inner(msgPack).0
     }
     public init(msgPack data:Data) {
-        self = SION.parse(msgPack:data)
+        self = .parse(msgPack:data)
     }
     public var msgPack:Foundation.Data {
         typealias C = UInt8
