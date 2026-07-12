@@ -830,13 +830,13 @@ extension SION {
                 return d.count < I(len)+5 ? (err, 0) :
                     (.String(S(data:d[5...I(len)+1], encoding:.utf8)!), I(len)+5)
             case 0xc4: return d.count < I(d[1])+1 ? (err, 0) :
-                (.Data(d[1..<I(d[1])]), I(d[1])+1)
+                (.Data(d[2..<I(d[1])+2]), I(d[1])+2)
             case 0xc5:
                 let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
-                return d.count < I(len)+3 ? (err, 0) : (.Data(d[3..<I(len)]), I(len)+3)
+                return d.count < I(len)+3 ? (err, 0) : (.Data(d[3...I(len)+3]), I(len)+3)
             case 0xc6:
                 let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
-                return d.count < I(len)+5 ? (err, 0) : (.Data(d[5..<I(len)]), I(len)+5)
+                return d.count < I(len)+5 ? (err, 0) : (.Data(d[5..<I(len)+5]), I(len)+5)
             case 0b10010000...0b10011111:   // fixarray
                 let len = I(d[0] & 0b1111)
                 var (a, o) = ([SION](), 1)

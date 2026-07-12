@@ -110,8 +110,8 @@ final class SIONTests: XCTestCase {
         XCTAssertEqual(try! JSONDecoder().decode(SION.self, from:data2), sion3)
     }
     func testMsgPack() {
-        let data = sion0.msgPack
-        XCTAssertEqual(SION(msgPack: data), sion0)
+        XCTAssertEqual(SION(msgPack: sion0.msgPack), sion0)
+        XCTAssertEqual(SION(msgPack: sion1.msgPack), sion1)
     }
     func testHash() {
         XCTAssertEqual(SION(["zero":0,"one":1]).hashValue, SION(["one":1,"zero":0]).hashValue)
