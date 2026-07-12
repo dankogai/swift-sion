@@ -259,12 +259,11 @@ extension SION {
         }
     }
     public func jsonObject() throws -> Any {
-        var options:JSONSerialization.ReadingOptions
-        if #available(macOS 12.0, *) {
-            options = [.allowFragments,.json5Allowed]
-        } else {
-           options = [.allowFragments]
-        }
+#if swift(<6.0)
+        let options:JSONSerialization.ReadingOptions = [.allowFragments]
+#else
+        let options:JSONSerialization.ReadingOptions = [.allowFragments,.json5Allowed]
+#endif
         return try JSONSerialization.jsonObject(with:self.json.data(using: .utf8)!, options:options)
     }
     public init(propertyList data:Data, format:PropertyListSerialization.PropertyListFormat = .binary) {
