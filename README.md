@@ -88,12 +88,6 @@ Simply
 $ swift run --repl
 ```
 
-or
-
-```sh
-$ scripts/run-repl.sh
-```
-
 and in your repl,
 
 ```sh
@@ -123,18 +117,9 @@ sion: SION.SION = Object {
 
 ### Xcode
 
-Xcode project is deliberately excluded from the repository because it should be generated via `swift package generate-xcodeproj` . For convenience, you can
+Just open ./Package.json
 
-```sh
-$ scripts/prep-xcode
-```
-
-And the Workspace opens up for you with Playground on top.  The playground is written as a manual.  To run, make sure to set location to  **Relative to Playground** in **Playground Setting**.
-
-![](img/playground-settings.png)
-![](img/playground-settings-location.png)
-
-### Swift Playgrounds
+### Swift Playgrounds App
 
 Unfortunately Swift Package Manager does not work well with Swift Playgrounds even though it claims to support it (too many `error=22` :-).  But don't worry.  This module is so compact all you need is copy [SION.swift].
 
