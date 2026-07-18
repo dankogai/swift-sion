@@ -63,3 +63,6 @@ fastlane/test_output
 
 # VSCode
 .vscode/
+
+# Anything out of the sight of git
+.attic/
