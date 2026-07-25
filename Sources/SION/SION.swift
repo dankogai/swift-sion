@@ -491,19 +491,20 @@ extension SION {
         """.components(separatedBy: .whitespacesAndNewlines).joined()
         let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
         let s_date    = ".Date\\(" + s_double + "\\)"
-        let s_string  = "\"(.*?)(?<!\\\\)\""
+        // NB: no lookbehind — unsupported by the Swift 5.7 regex engine
+        let s_string  = "\"((?:[^\"\\\\]|\\\\.)*)\""
         let s_base64  = "(?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?"
         let s_dataext = ".(?:Data|Ext)\\(\"" + s_base64 + "\"\\)"
         let s_comment = "//[^\n\r]*?"
         let s_all = [ "\\[", "\\]", ":", ",",
                       s_null, s_bool, s_date, s_double, s_int, s_dataext, s_string, s_comment
             ].joined(separator:"|")
-        let reAll    = try! NSRegularExpression(pattern: s_all, options: [.dotMatchesLineSeparators])
+        let reAll    = try! Regex(s_all).dotMatchesNewlines()
         func tokenize(_ string:Swift.String)->[Swift.String] {
             var tokens = [Swift.String]()
-            reAll.enumerateMatches(in: string, range:NSRange(0..<string.count)) { cr, _, _ in
-                let token = Swift.String(string[Range(cr!.range, in:string)!])
-                if token.hasPrefix("//") { return } // ignore comment
+            for match in string.matches(of:reAll) {
+                let token = Swift.String(string[match.range])
+                if token.hasPrefix("//") { continue } // ignore comment
                 tokens.append( token )
             }
             return tokens
