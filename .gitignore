@@ -64,5 +64,8 @@ fastlane/test_output
 # VSCode
 .vscode/
 
+# Claude Code
+.claude/
+
 # Anything out of the sight of git
 .attic/
