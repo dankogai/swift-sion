@@ -21,7 +21,7 @@ let package = Package(
         .target(
             name: "SION",
             dependencies: []),
-        .target(
+        .executableTarget(
           name: "SIONRun",
           dependencies: ["SION"]),
         .testTarget(
