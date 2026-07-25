@@ -1,4 +1,4 @@
-[![Swift 5](https://img.shields.io/badge/swift-5-blue.svg)](https://swift.org)
+[![Swift 5.7](https://img.shields.io/badge/swift-5.7-blue.svg)](https://swift.org)
 [![Swift 6](https://img.shields.io/badge/swift-6-blue.svg)](https://swift.org)
 [![MIT LiCENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI via GitHub Actions](https://github.com/dankogai/swift-sion/actions/workflows/swift.yml/badge.svg)](https://github.com/dankogai/swift-sion/actions/workflows/swift.yml)
@@ -167,5 +167,5 @@ in your code.  Enjoy!
 
 ## Prerequisite
 
-Swift 5 or better, OS X or Linux to build.
+Swift 5.7 or better.
 
