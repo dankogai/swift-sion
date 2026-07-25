@@ -500,6 +500,8 @@ extension SION {
                       s_null, s_bool, s_date, s_double, s_int, s_dataext, s_string, s_comment
             ].joined(separator:"|")
         let reAll    = try! Regex(s_all).dotMatchesNewlines()
+        let reDouble = try! Regex(s_double)
+        let reInt    = try! Regex(s_int)
         func tokenize(_ string:Swift.String)->[Swift.String] {
             var tokens = [Swift.String]()
             for match in string.matches(of:reAll) {
@@ -513,12 +515,30 @@ extension SION {
             return s == "true" ? .Bool(true) : s == "false" ? .Bool(false) : nil
         }
         func toDouble(_ s:String)->Self? {
-            guard let d = Swift.Double(s) else { return nil }
-            return .Double(d)
+            guard let cr = s.wholeMatch(of:reDouble) else { return nil }
+            guard let sign      = cr.output[1].substring,
+                  let magnitude = cr.output[2].substring else { return nil }
+            // debugPrint(sign, magnitude)
+            let double    = (sign == "-" ? -1.0 : +1.0) * Swift.Double(magnitude)!
+            return .Double(double)
         }
         func toInt(_ s:String)->Self? {
-            guard let i = Swift.Int(s) else { return nil }
-            return .Int(i)
+            guard let cr = s.wholeMatch(of:reInt) else { return nil }
+            guard let sign      = cr.output[1].substring,
+                  let magnitude = cr.output[2].substring else { return nil }
+            var int = 0
+            if magnitude.hasPrefix("0") && 2 < magnitude.count {
+                let offset = magnitude.index(magnitude.startIndex, offsetBy:2)
+                switch magnitude[magnitude.index(after:magnitude.startIndex)] {
+                case "x": int = Swift.Int(magnitude[offset...], radix:16)!
+                case "o": int = Swift.Int(magnitude[offset...], radix:8)!
+                case "b": int = Swift.Int(magnitude[offset...], radix:2)!
+                default: int = Swift.Int(magnitude)!
+                }
+            } else {
+                int = Swift.Int(magnitude)!
+            }
+            return .Int(sign == "-" ? -int : +int)
         }
         func toDate(_ s:String)->Self? {
             //                 0123456
