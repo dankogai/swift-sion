@@ -477,8 +477,8 @@ extension SION : Sequence {
     }
 }
 extension SION {
-    /// parse string to SION
-    public static func parse(string:Swift.String)->Self {
+    /// tokenizer regex — compiled once per process rather than on every parse call
+    private static let reToken:Regex<AnyRegexOutput> = {
         let s_null = "nil"
         let s_bool = "true|false"
         let s_double = """
@@ -490,42 +490,24 @@ extension SION {
             )
         """.components(separatedBy: .whitespacesAndNewlines).joined()
         let s_int = "([+-]?)(0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|[1-9][0-9]*|0)"
-        let s_date    = ".Date\\(" + s_double + "\\)"
+        let s_date    = "\\.Date\\(" + s_double + "\\)"
         // NB: no lookbehind — unsupported by the Swift 5.7 regex engine
         let s_string  = "\"((?:[^\"\\\\]|\\\\.)*)\""
-        let s_base64  = "(?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?"
-        let s_dataext = ".(?:Data|Ext)\\(\"" + s_base64 + "\"\\)"
-        let s_comment = "//[^\n\r]*?"
+        let s_base64  = "((?:[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/]+[=]{0,3})?)"
+        let s_dataext = "\\.(Data|Ext)\\(\"" + s_base64 + "\"\\)"
+        let s_comment = "//[^\n\r]*"    // greedy: consume the comment so its words never tokenize
         let s_all = [ "\\[", "\\]", ":", ",",
                       s_null, s_bool, s_date, s_double, s_int, s_dataext, s_string, s_comment
             ].joined(separator:"|")
-        let reAll    = try! Regex(s_all).dotMatchesNewlines()
-        let reDouble = try! Regex(s_double)
-        let reInt    = try! Regex(s_int)
-        func tokenize(_ string:Swift.String)->[Swift.String] {
-            var tokens = [Swift.String]()
-            for match in string.matches(of:reAll) {
-                let token = Swift.String(string[match.range])
-                if token.hasPrefix("//") { continue } // ignore comment
-                tokens.append( token )
-            }
-            return tokens
-        }
-        func toBool(_ s:String)->Self? {
-            return s == "true" ? .Bool(true) : s == "false" ? .Bool(false) : nil
-        }
-        func toDouble(_ s:String)->Self? {
-            guard let cr = s.wholeMatch(of:reDouble) else { return nil }
-            guard let sign      = cr.output[1].substring,
-                  let magnitude = cr.output[2].substring else { return nil }
-            // debugPrint(sign, magnitude)
-            let double    = (sign == "-" ? -1.0 : +1.0) * Swift.Double(magnitude)!
-            return .Double(double)
-        }
-        func toInt(_ s:String)->Self? {
-            guard let cr = s.wholeMatch(of:reInt) else { return nil }
-            guard let sign      = cr.output[1].substring,
-                  let magnitude = cr.output[2].substring else { return nil }
+        return try! Regex(s_all).dotMatchesNewlines()
+    }()
+    /// parse string to SION
+    public static func parse(string:Swift.String)->Self {
+        // A token is either a structural marker or an already-parsed leaf value.
+        // Capturing the value during tokenization lets us parse in a single regex
+        // pass instead of re-matching every scalar to recover its primitive value.
+        enum Token { case open, close, colon, comma, value(SION) }
+        func toInt(sign:Substring, magnitude:Substring)->Self {
             var int = 0
             if magnitude.hasPrefix("0") && 2 < magnitude.count {
                 let offset = magnitude.index(magnitude.startIndex, offsetBy:2)
@@ -533,60 +515,153 @@ extension SION {
                 case "x": int = Swift.Int(magnitude[offset...], radix:16)!
                 case "o": int = Swift.Int(magnitude[offset...], radix:8)!
                 case "b": int = Swift.Int(magnitude[offset...], radix:2)!
-                default: int = Swift.Int(magnitude)!
+                default:  int = Swift.Int(magnitude)!
                 }
             } else {
                 int = Swift.Int(magnitude)!
             }
             return .Int(sign == "-" ? -int : +int)
         }
-        func toDate(_ s:String)->Self? {
-            //                 0123456
-            guard s.hasPrefix(".Date(") else { return nil }
-            guard s.hasSuffix(")")      else { return nil }
-            var ss = s
-            ss.removeFirst(6)
-            ss.removeLast(1)
-            if let d = Swift.Double(ss) {
-                let date = Foundation.Date(timeIntervalSince1970: d)
-                return .Date(date)
+        func toNumber(sign:Substring, magnitude:Substring)->Self {
+            // integer-valued literals (e.g. "1", "42") stay Int; the rest are Double
+            if let int = Swift.Int(magnitude) {
+                return .Int(sign == "-" ? -int : +int)
             }
-            return nil
+            let double = Swift.Double(magnitude)!
+            return .Double(sign == "-" ? -double : +double)
         }
-        func toString(_ s:String)->Self? {
-            if s.first != "\"" { return nil }
-            if s.last  != "\"" { return nil }
-            return SION(json:Swift.String(s))
-        }
-        func toDataExt(_ s:String)->Self? {
-            //                             012345 6                          01234 5
-            let isExt:Bool? = s.hasPrefix(".Data(\"") ? false : s.hasPrefix(".Ext(\"") ? true : nil
-            if isExt == nil { return nil }
-            guard s.hasSuffix("\")") else { return nil }
-            var ss = s
-            ss.removeFirst(isExt! ? 6 : 7)
-            ss.removeLast(2)
-            // print(ss)
-            if let data = Foundation.Data(base64Encoded:ss, options:[.ignoreUnknownCharacters]) {
-                return isExt! ? .Ext(data) : .Data(data)
+        // decode a quoted string body: JSON escapes plus \0 and \u{...},
+        // which SION's own serializer (String.debugDescription) emits
+        func unquote(_ body:Substring)->Swift.String? {
+            var out = Swift.String()
+            out.reserveCapacity(body.count)
+            var i = body.startIndex
+            func hex4()->UInt32? {  // exactly 4 hex digits
+                var v:UInt32 = 0
+                for _ in 0..<4 {
+                    guard i < body.endIndex, let d = body[i].hexDigitValue else { return nil }
+                    v = v << 4 | UInt32(d)
+                    i = body.index(after:i)
+                }
+                return v
             }
-            return nil
+            func hexBraced()->UInt32? { // "{" 1...8 hex digits "}"
+                i = body.index(after:i) // skip "{"
+                var v:UInt32 = 0, n = 0
+                while i < body.endIndex, let d = body[i].hexDigitValue {
+                    n += 1
+                    if 8 < n { return nil }
+                    v = v << 4 | UInt32(d)
+                    i = body.index(after:i)
+                }
+                guard 0 < n, i < body.endIndex, body[i] == "}" else { return nil }
+                i = body.index(after:i)
+                return v
+            }
+            while i < body.endIndex {
+                let c = body[i]
+                i = body.index(after:i)
+                guard c == "\\" else { out.append(c); continue }
+                guard i < body.endIndex else { return nil }
+                let e = body[i]
+                i = body.index(after:i)
+                switch e {
+                case "\"": out.append("\"")
+                case "\\": out.append("\\")
+                case "/":  out.append("/")
+                case "0":  out.append("\0")
+                case "b":  out.append("\u{08}")
+                case "f":  out.append("\u{0C}")
+                case "n":  out.append("\n")
+                case "r":  out.append("\r")
+                case "t":  out.append("\t")
+                case "u":
+                    var u:UInt32
+                    if i < body.endIndex && body[i] == "{" {
+                        guard let v = hexBraced() else { return nil }
+                        u = v
+                    } else {
+                        guard let v = hex4() else { return nil }
+                        u = v
+                        if 0xD800...0xDBFF ~= u {   // high surrogate: pair with \uDC00...\uDFFF
+                            guard i < body.endIndex, body[i] == "\\" else { return nil }
+                            i = body.index(after:i)
+                            guard i < body.endIndex, body[i] == "u" else { return nil }
+                            i = body.index(after:i)
+                            guard let lo = hex4(), 0xDC00...0xDFFF ~= lo else { return nil }
+                            u = 0x10000 + ((u - 0xD800) << 10) + (lo - 0xDC00)
+                        }
+                    }
+                    guard let scalar = Unicode.Scalar(u) else { return nil }
+                    out.unicodeScalars.append(scalar)
+                default: return nil
+                }
+            }
+            return out
         }
-        func toElement(_ s:Swift.String)->Self {
-            return s == "nil" ? .Nil
-                : toBool(s) ?? toInt(s) ?? toDate(s) ?? toDouble(s) ?? toDataExt(s) ?? toString(s) ?? .Error(.notASIONType)
+        // Classify one non-structural match, reading its value straight from the
+        // tokenizer's capture groups. Group layout of `s_all`:
+        //   [1],[2] = date sign/magnitude    [3],[4] = double sign/magnitude
+        //   [5],[6] = int sign/magnitude     [7] = Data|Ext   [8] = base64 body
+        //   [9] = string body
+        func toValue(_ whole:Substring, _ out:AnyRegexOutput)->Self {
+            if whole == "nil"   { return .Nil }
+            if whole == "true"  { return .Bool(true) }
+            if whole == "false" { return .Bool(false) }
+            if let magnitude = out[2].substring {   // .Date(...)
+                let d = Swift.Double(magnitude)!
+                return .Date(Foundation.Date(timeIntervalSince1970: out[1].substring == "-" ? -d : d))
+            }
+            if let magnitude = out[4].substring {
+                return toNumber(sign: out[3].substring ?? "", magnitude: magnitude)
+            }
+            if let magnitude = out[6].substring {
+                return toInt(sign: out[5].substring ?? "", magnitude: magnitude)
+            }
+            if let kind = out[7].substring {        // .Data(...) / .Ext(...)
+                guard let data = Foundation.Data(base64Encoded:Swift.String(out[8].substring ?? ""),
+                                                 options:[.ignoreUnknownCharacters]) else {
+                    return .Error(.notASIONType)
+                }
+                return kind == "Ext" ? .Ext(data) : .Data(data)
+            }
+            if let body = out[9].substring {        // quoted string
+                guard let s = unquote(body) else { return .Error(.notASIONType) }
+                return .String(s)
+            }
+            return .Error(.notASIONType)
         }
-        func toCollection(_ tokens:[Swift.String])->Self {
-            let isDictionary = 2 < tokens.count && tokens[2] == ":" || tokens[1] == ":"
+        func tokenize(_ string:Swift.String)->[Token] {
+            var tokens = [Token]()
+            for match in string.matches(of:reToken) {
+                let whole = string[match.range]
+                switch whole {
+                case "[": tokens.append(.open)
+                case "]": tokens.append(.close)
+                case ":": tokens.append(.colon)
+                case ",": tokens.append(.comma)
+                default:
+                    if whole.hasPrefix("//") { continue } // ignore comment
+                    tokens.append(.value(toValue(whole, match.output)))
+                }
+            }
+            return tokens
+        }
+        func toCollection(_ tokens:[Token])->Self {
+            let isDictionary:Bool = {
+                if 2 < tokens.count, case .colon = tokens[2] { return true }
+                if case .colon = tokens[1] { return true }
+                return false
+            }()
             var elems = [SION]()
             var i = 1, d = 0
             while i < tokens.count {
-                if tokens[i] == "[" {
-                    var subtokens = ["["]
+                if case .open = tokens[i] {
+                    var subtokens:[Token] = [.open]
                     d = 1; i += 1
                     while i < tokens.count {
-                        if tokens[i] == "["         { d += 1 }
-                        else if tokens[i] == "]"    { d -= 1 }
+                        if case .open  = tokens[i] { d += 1 }
+                        if case .close = tokens[i] { d -= 1 }
                         subtokens.append(tokens[i])
                         if d == 0 { break }
                         i += 1
@@ -594,9 +669,7 @@ extension SION {
                     elems.append(toCollection(subtokens))
                     continue
                 }
-                if !Set([":", ",", "[", "]"]).contains(tokens[i]) {
-                    elems.append(toElement(tokens[i]))
-                }
+                if case .value(let v) = tokens[i] { elems.append(v) }
                 i += 1
             }
             if isDictionary {
@@ -613,10 +686,13 @@ extension SION {
             }
         }
         let tokens = tokenize(string)
-        return tokens.isEmpty ? .Error(.notASIONType)
-            :  tokens.count == 1 ? toElement(tokens[0])
-            :  tokens[0] == "["  ? toCollection(tokens)
-            : .Error(.notASIONType)
+        if tokens.isEmpty { return .Error(.notASIONType) }
+        if tokens.count == 1 {
+            if case .value(let v) = tokens[0] { return v }
+            return .Error(.notASIONType)
+        }
+        if case .open = tokens[0] { return toCollection(tokens) }
+        return .Error(.notASIONType)
     }
     /// initialize from string
     public init(string:String) {
