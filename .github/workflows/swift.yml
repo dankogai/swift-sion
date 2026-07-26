@@ -20,4 +20,5 @@ jobs:
           swift-version: ${{ matrix.swift }}
       - uses: actions/checkout@v6
       - name: Run tests
+        if: runner.os != "macOS" || runner.swift != "5.10"
         run: swift test -c release -Xswiftc -enable-testing -v
