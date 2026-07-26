@@ -13,6 +13,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         swift: ["5.10", "6.3"]
+        exclude:
+          - os: macos-latest
+            swift: "5.10"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: SwiftyLab/setup-swift@v1
@@ -20,5 +23,4 @@ jobs:
           swift-version: ${{ matrix.swift }}
       - uses: actions/checkout@v6
       - name: Run tests
-        if: runner.os != "macOS" || runner.swift != "5.10"
         run: swift test -c release -Xswiftc -enable-testing -v
