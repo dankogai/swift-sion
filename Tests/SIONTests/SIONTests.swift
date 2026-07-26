@@ -293,4 +293,131 @@ import Foundation
         #expect(picked["c"] == .Array([.Int(1), .Int(2)]))
     }
 }
+
+@Suite struct SIONMsgPackTests {
+    func roundTrips(_ sion:SION) -> Bool {
+        return SION(msgPack: sion.msgPack) == sion
+    }
+    @Test func scalars() {
+        #expect(roundTrips(SION.Nil))
+        #expect(roundTrips(.Bool(true)))
+        #expect(roundTrips(.Bool(false)))
+        #expect(roundTrips(.Double(42.195)))
+        #expect(roundTrips(.Double(-0.5)))
+        #expect(roundTrips(.Double(.infinity)))
+    }
+    @Test func integerWidths() {
+        // hit every encoding: fixint, int8/16/32/64 boundaries on both sides
+        for i in [0, 1, -1, -32, -33, 127, 128, 255, 256, -128, -129,
+                  32767, 32768, -32768, -32769, 0x7fff_ffff, 0x8000_0000,
+                  -0x8000_0000, -0x8000_0001, Int.max, Int.min] {
+            #expect(roundTrips(.Int(i)), "int \(i)")
+        }
+    }
+    @Test func stringLengths() {
+        // fixstr/str8/str16/str32 boundaries; str16/str32 payload was off by 1/3 bytes
+        for n in [0, 1, 31, 32, 255, 256, 300, 65535, 65536, 70000] {
+            #expect(roundTrips(.String(String(repeating:"a", count:n))), "string length \(n)")
+        }
+        #expect(roundTrips(.String("漢字、カタカナ、ひらがなの入ったstring😇")))
+        #expect(roundTrips(.String(String(repeating:"😇", count:100))))    // 400 utf8 bytes -> str16
+    }
+    @Test func dataLengths() {
+        // bin8/bin16/bin32 boundaries; bin16 read one byte past the payload (crash)
+        for n in [0, 1, 255, 256, 300, 65535, 65536, 70000] {
+            #expect(roundTrips(.Data(Data(repeating:0x55, count:n))), "data length \(n)")
+        }
+    }
+    @Test func dates() {
+        // timestamp64 for [0, 2^34); timestamp96 for pre-1970 (used to trap) and far future
+        for t in [0.0, 1.5, 42.195, 1e9, -1.5, -0.25, -1e9, 34359738368.0] {
+            #expect(roundTrips(.Date(Date(timeIntervalSince1970:t))), "date \(t)")
+        }
+    }
+    @Test func dateFormatSelection() {
+        // in-range dates keep the timestamp64 wire format; out-of-range use timestamp96
+        #expect(SION.Date(Date(timeIntervalSince1970:0)).msgPack.first == 0xd7)
+        #expect(SION.Date(Date(timeIntervalSince1970:-1.5)).msgPack.first == 0xc7)
+        #expect(SION.Date(Date(timeIntervalSince1970:34359738368.0)).msgPack.first == 0xc7)
+    }
+    @Test func collections() {
+        #expect(roundTrips(.Array([])))
+        #expect(roundTrips(.Dictionary([:])))
+        #expect(roundTrips(["nested":[1, [2, [3, "🕳"]]], "empty":[]]))
+        #expect(roundTrips(.Array((0..<20).map{ .Int($0) })))                       // array16
+        var big = [SION.Key:SION.Value]()
+        for i in 0..<20 { big[.Int(i)] = .String("v\(i)") }
+        #expect(roundTrips(.Dictionary(big)))                                       // map16
+        #expect(roundTrips([1: "one", true: "yes", "k": nil] as SION))              // mixed keys
+    }
+    @Test func timestampParsing() {
+        // timestamp32: [0xd6, -1, sec(u32 BE)]
+        #expect(SION(msgPack:Data([0xd6, 0xff, 0, 0, 0, 42])) == .Date(Date(timeIntervalSince1970:42)))
+        // timestamp96: [0xc7, 12, -1, nsec(u32 BE), sec(i64 BE)] — sec=-2 nsec=5e8 -> -1.5
+        var ts96 = Data([0xc7, 12, 0xff])
+        var nsec = UInt32(500_000_000).bigEndian
+        var sec  = Int64(-2).bigEndian
+        withUnsafeBytes(of:&nsec) { ts96.append(contentsOf:$0) }
+        withUnsafeBytes(of:&sec)  { ts96.append(contentsOf:$0) }
+        #expect(SION(msgPack:ts96) == .Date(Date(timeIntervalSince1970: -1.5)))
+        // and the serializer emits exactly that for a pre-1970 date
+        #expect(SION.Date(Date(timeIntervalSince1970: -1.5)).msgPack == ts96)
+    }
+    @Test func extPassthrough() {
+        // non-timestamp ext chunks survive parse -> serialize unchanged (header included)
+        for ext:[UInt8] in [
+            [0xd4, 0x05, 0x2a],                     // fixext1
+            [0xd5, 0x05, 0x2a, 0x2b],               // fixext2
+            [0xc7, 2, 0x05, 0xAA, 0xBB],            // ext8
+            [0xc8, 0, 2, 0x05, 0xAA, 0xBB],         // ext16
+            [0xc9, 0, 0, 0, 2, 0x05, 0xAA, 0xBB],   // ext32
+        ] {
+            let data = Data(ext)
+            let parsed = SION(msgPack:data)
+            #expect(parsed == .Ext(data), "parse \(ext)")
+            #expect(parsed.msgPack == data, "reserialize \(ext)")
+        }
+    }
+    @Test func foreignEncodings() {
+        // encodings our serializer never emits but the parser must accept
+        #expect(SION(msgPack:Data([0xcc, 0xff])) == .Int(255))                  // uint8
+        #expect(SION(msgPack:Data([0xcd, 0x01, 0x00])) == .Int(256))            // uint16
+        #expect(SION(msgPack:Data([0xce, 0, 1, 0, 0])) == .Int(0x10000))        // uint32
+        #expect(SION(msgPack:Data([0xcf, 0,0,0,0,0,0,0,42])) == .Int(42))       // uint64 in range
+        #expect(SION(msgPack:Data([0xca, 0x3f, 0x80, 0, 0])) == .Double(1.0))   // float32
+        #expect(SION(msgPack:Data([0xa0])) == .String(""))                      // empty fixstr
+    }
+    @Test func uint64OverflowIsError() {
+        // > Int.max: error instead of silently wrapping negative
+        #expect(SION(msgPack:Data([0xcf, 0xff, 0, 0, 0, 0, 0, 0, 0])).error != nil)
+    }
+    @Test func malformedInputsDoNotCrash() {
+        let bads:[[UInt8]] = [
+            [],                     // empty
+            [0xd9],                 // str8 missing length
+            [0xd9, 5, 0x61],        // str8 truncated payload
+            [0xda, 0x01],           // str16 missing length byte
+            [0xc4],                 // bin8 missing length
+            [0xc5, 0xff, 0xff],     // bin16 truncated payload
+            [0xcc],                 // uint8 missing value
+            [0xcb, 0, 0],           // float64 truncated
+            [0xdc, 0x00],           // array16 missing length byte
+            [0xde, 0x00],           // map16 missing length byte
+            [0x91],                 // fixarray missing element
+            [0x81, 0xc1, 0x01],     // fixmap with invalid key
+            [0xc7],                 // ext8 missing length
+            [0xd4, 0x05],           // fixext1 truncated
+            [0xa1, 0xff],           // fixstr with invalid utf8
+            [0xc1],                 // never-used type byte
+        ]
+        for bad in bads {
+            #expect(SION(msgPack:Data(bad)).error != nil, "input \(bad)")
+        }
+    }
+    @Test func sliceInput() {
+        // Data slices with non-zero start indices parse correctly
+        let whole = Data([0x00, 0x00, 0x2a])
+        #expect(SION(msgPack:whole[2...]) == .Int(42))
+    }
+}
 #endif // canImport(Testing)

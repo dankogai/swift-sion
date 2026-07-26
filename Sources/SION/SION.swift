@@ -878,9 +878,11 @@ extension SION {
                     (.Int(I(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self)))), 3)
             case 0xce: return d.count < 5 ? (err, 0) : (
                 .Int(Swift.Int(UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self)))),5)
-            case 0xcf: return d.count < 9 ? (err, 0) : (
-                 .Int(Swift.Int(bitPattern:UInt(bigEndian:unsafeBitCast(
-                    (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self)))), 9)
+            case 0xcf:                      // uint64: error out instead of wrapping negative
+                guard 9 <= d.count else { return (err, 0) }
+                let u = UInt64(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt64.self))
+                guard u <= UInt64(Swift.Int.max) else { return (err, 0) }
+                return (.Int(I(u)), 9)
             case 0xd0: return d.count < 2 ? (err, 0) :
                 ( .Int(I(Int8(bitPattern:d[1]))), 2)
             case 0xd1: return d.count < 3 ? (err, 0) :
@@ -891,28 +893,39 @@ extension SION {
                 ( .Int(I(bitPattern:UInt(bigEndian:unsafeBitCast(
                     (d[1],d[2],d[3],d[4],d[5],d[6],d[7],d[8]), to:UInt.self)))), 9)
             case 0b10100000...0b10111111:   // fixstr
-                let c = d[0] & 0b11111
-                return d.count < I(c)+1 ? (err, 0) :
-                    (.String(S(data:d[1...I(c)], encoding:.utf8)!), I(c)+1)
-            case 0xd9:
-                return d.count < I(d[1])+2 ? (err, 0) :
-                    (.String(S(data:d[2...I(d[1])+1], encoding:.utf8)!), I(d[1])+2)
-            case 0xda:
-                let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
-                return d.count < I(len)+3 ? (err, 0) :
-                    (.String(S(data:d[3...I(len)+1], encoding:.utf8)!), I(len)+3)
-            case 0xdb:
-                let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
-                return d.count < I(len)+5 ? (err, 0) :
-                    (.String(S(data:d[5...I(len)+1], encoding:.utf8)!), I(len)+5)
-            case 0xc4: return d.count < I(d[1])+1 ? (err, 0) :
-                (.Data(d[2..<I(d[1])+2]), I(d[1])+2)
-            case 0xc5:
-                let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
-                return d.count < I(len)+3 ? (err, 0) : (.Data(d[3...I(len)+3]), I(len)+3)
-            case 0xc6:
-                let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
-                return d.count < I(len)+5 ? (err, 0) : (.Data(d[5..<I(len)+5]), I(len)+5)
+                let len = I(d[0] & 0b11111)
+                guard len+1 <= d.count, let s = S(data:d[1..<len+1], encoding:.utf8) else { return (err, 0) }
+                return (.String(s), len+1)
+            case 0xd9:                      // str8
+                guard 1 < d.count else { return (err, 0) }
+                let len = I(d[1])
+                guard len+2 <= d.count, let s = S(data:d[2..<len+2], encoding:.utf8) else { return (err, 0) }
+                return (.String(s), len+2)
+            case 0xda:                      // str16
+                guard 2 < d.count else { return (err, 0) }
+                let len = I(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self)))
+                guard len+3 <= d.count, let s = S(data:d[3..<len+3], encoding:.utf8) else { return (err, 0) }
+                return (.String(s), len+3)
+            case 0xdb:                      // str32
+                guard 4 < d.count else { return (err, 0) }
+                let len = I(UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self)))
+                guard len+5 <= d.count, let s = S(data:d[5..<len+5], encoding:.utf8) else { return (err, 0) }
+                return (.String(s), len+5)
+            case 0xc4:                      // bin8
+                guard 1 < d.count else { return (err, 0) }
+                let len = I(d[1])
+                guard len+2 <= d.count else { return (err, 0) }
+                return (.Data(d[2..<len+2]), len+2)
+            case 0xc5:                      // bin16
+                guard 2 < d.count else { return (err, 0) }
+                let len = I(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self)))
+                guard len+3 <= d.count else { return (err, 0) }
+                return (.Data(d[3..<len+3]), len+3)
+            case 0xc6:                      // bin32
+                guard 4 < d.count else { return (err, 0) }
+                let len = I(UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self)))
+                guard len+5 <= d.count else { return (err, 0) }
+                return (.Data(d[5..<len+5]), len+5)
             case 0b10010000...0b10011111:   // fixarray
                 let len = I(d[0] & 0b1111)
                 var (a, o) = ([SION](), 1)
@@ -924,6 +937,7 @@ extension SION {
                 }
                 return (.Array(a), o)
             case 0xdc:
+                guard 2 < d.count else { return (err, 0) }
                 let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
                 var (a, o) = ([SION](), 3)
                 for _ in 0..<len {
@@ -934,6 +948,7 @@ extension SION {
                 }
                 return (.Array(a), o)
             case 0xdd:
+                guard 4 < d.count else { return (err, 0) }
                 let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
                 var (a, o) = ([SION](), 5)
                 for _ in 0..<len {
@@ -948,13 +963,16 @@ extension SION {
                 var (m, o) = ([Key:Value](), 1)
                 for _ in 0..<len {
                     let (k, ck) = inner(FD(d[o...]))
+                    if k == err { return (err, 0) }
                     o += ck
                     let (v, cv) = inner(FD(d[o...]))
+                    if v == err { return (err, 0) }
                     o += cv
                     m[k] = v
                 }
                 return (.Dictionary(m), o)
             case 0xde:
+                guard 2 < d.count else { return (err, 0) }
                 let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
                 var (m, o) = ([Key:Value](), 3)
                 for _ in 0..<len {
@@ -968,6 +986,7 @@ extension SION {
                 }
                 return (.Dictionary(m), o)
             case 0xdf:
+                guard 4 < d.count else { return (err, 0) }
                 let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
                 var (m, o) = ([Key:Value](), 5)
                 for _ in 0..<len {
@@ -980,11 +999,14 @@ extension SION {
                     m[k] = v
                 }
                 return (.Dictionary(m), o)
-            case 0xd4:
+            case 0xd4:                      // fixext1
+                guard 3 <= d.count else { return (err, 0) }
                 return (.Ext(d[0..<3]), 3)
-            case 0xd5:
+            case 0xd5:                      // fixext2
+                guard 4 <= d.count else { return (err, 0) }
                 return (.Ext(d[0..<4]), 4)
-            case 0xd6:
+            case 0xd6:                      // fixext4
+                guard 6 <= d.count else { return (err, 0) }
                 if d[1] == 0xff {   // timestamp32
                     let tv_sec =
                         UInt32(bigEndian: unsafeBitCast((d[2],d[3],d[4],d[5]), to: UInt32.self))
@@ -992,7 +1014,8 @@ extension SION {
                     return (.Date(Foundation.Date(timeIntervalSince1970: time)), 6)
                 }
                 return (.Ext(d[0..<6]), 6)
-            case 0xd7:
+            case 0xd7:                      // fixext8
+                guard 10 <= d.count else { return (err, 0) }
                 if d[1] == 0xff {   // timestamp64
                     let data64 =
                         UInt64(bigEndian: unsafeBitCast((d[2],d[3],d[4],d[5],d[6],d[7],d[8],d[9]), to: UInt64.self))
@@ -1002,28 +1025,36 @@ extension SION {
                     return (.Date(Foundation.Date(timeIntervalSince1970: time)), 10)
                 }
                 return (.Ext(d[0..<10]), 10)
-            case 0xd8:
+            case 0xd8:                      // fixext16
+                guard 18 <= d.count else { return (err, 0) }
                 return (.Ext(d[0..<18]), 18)
-            case 0xc7:
-                if d[1] == 0xff {   // timestamp96
-                    let tv_nsec = UInt32(bigEndian:unsafeBitCast((d[2],d[3],d[4],d[5]), to: UInt32.self))
+            case 0xc7:                      // ext8: [0xc7, len, type, payload...]
+                guard 2 < d.count else { return (err, 0) }
+                let len = I(d[1])
+                guard len+3 <= d.count else { return (err, 0) }
+                if len == 12, d[2] == 0xff {    // timestamp96: nsec(u32) + sec(i64)
+                    let tv_nsec = UInt32(bigEndian:unsafeBitCast((d[3],d[4],d[5],d[6]), to: UInt32.self))
                     let tv_sec =
-                        UInt64(bigEndian: unsafeBitCast((d[6],d[7],d[8],d[9],d[10],d[11],d[12],d[13]), to: UInt64.self))
+                        Int64(bigEndian: unsafeBitCast((d[7],d[8],d[9],d[10],d[11],d[12],d[13],d[14]), to: Int64.self))
                     let time = Swift.Double(tv_sec) + Swift.Double(tv_nsec)/1e9
-                    return (.Date(Foundation.Date(timeIntervalSince1970: time)), 14)
+                    return (.Date(Foundation.Date(timeIntervalSince1970: time)), 15)
                 }
-                return (.Ext(d[0..<I(d[1])]), I(d[1])+3)
-            case 0xc8:
-                let len = UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self))
-                return (.Ext(d[0..<I(len)]), I(len)+4)
-            case 0xc9:
-                let len = UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self))
-                return (.Ext(d[0..<I(len)]), I(len)+6)
+                return (.Ext(d[0..<len+3]), len+3)
+            case 0xc8:                      // ext16
+                guard 3 < d.count else { return (err, 0) }
+                let len = I(UInt16(bigEndian:unsafeBitCast((d[1],d[2]), to:UInt16.self)))
+                guard len+4 <= d.count else { return (err, 0) }
+                return (.Ext(d[0..<len+4]), len+4)
+            case 0xc9:                      // ext32
+                guard 5 < d.count else { return (err, 0) }
+                let len = I(UInt32(bigEndian:unsafeBitCast((d[1],d[2],d[3],d[4]), to:UInt32.self)))
+                guard len+6 <= d.count else { return (err, 0) }
+                return (.Ext(d[0..<len+6]), len+6)
             default:
                 return (err, 0)
             }
         }
-        return inner(msgPack).0
+        return inner(FD(msgPack)).0 // FD(_:) rebases indices in case a Data slice is passed
     }
     public init(msgPack data:Data) {
         self = .parse(msgPack:data)
@@ -1123,11 +1154,17 @@ extension SION {
             }
         case .Date(let v):
             let time = v.timeIntervalSince1970
-            let tv_sec  = UInt64(time)
-            let tv_nsec = UInt64((time - trunc(time)) * 1e9)
-            let data64  = UInt64(bigEndian:(tv_nsec << 34) | tv_sec)
-            let (u1,u2,u3,u4,u5,u6,u7,u8) = unsafeBitCast(data64, to:(C,C,C,C,C,C,C,C).self)
-            return FD([0xd7, 0xff, u1,u2,u3,u4,u5,u6,u7,u8])
+            let sec  = floor(time)
+            let nsec = Swift.min(UInt32((time - sec) * 1e9), 999_999_999)
+            if 0 <= sec && sec < 0x4_0000_0000 {    // fits timestamp64 (34-bit seconds)
+                let data64  = UInt64(bigEndian:(UInt64(nsec) << 34) | UInt64(sec))
+                let (u1,u2,u3,u4,u5,u6,u7,u8) = unsafeBitCast(data64, to:(C,C,C,C,C,C,C,C).self)
+                return FD([0xd7, 0xff, u1,u2,u3,u4,u5,u6,u7,u8])
+            } else {                                // timestamp96: nsec(u32) + sec(i64)
+                let (n1,n2,n3,n4) = unsafeBitCast(UInt32(bigEndian:nsec), to:(C,C,C,C).self)
+                let (s1,s2,s3,s4,s5,s6,s7,s8) = unsafeBitCast(Int64(bigEndian:Int64(sec)), to:(C,C,C,C,C,C,C,C).self)
+                return FD([0xc7, 12, 0xff, n1,n2,n3,n4, s1,s2,s3,s4,s5,s6,s7,s8])
+            }
         case .Ext(let v):
             return v    // return as is
         default:
