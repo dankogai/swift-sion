@@ -200,6 +200,12 @@ import Foundation
         // does not fit in Int; parsed as Double instead of trapping
         #expect(SION(string:"99999999999999999999999999") == .Double(1e26))
     }
+    @Test func radixOverflow() {
+        // fits Int64: .Int on 64-bit platforms (Double on 32-bit)
+        #expect(SION(string:"0x7fffffffffffffff").number == Double(Int64.max))
+        // beyond Int64: error instead of trapping
+        #expect(SION(string:"0xffffffffffffffff").error != nil)
+    }
 }
 
 @Suite struct SIONParserTokenTests {
@@ -308,9 +314,11 @@ import Foundation
     }
     @Test func integerWidths() {
         // hit every encoding: fixint, int8/16/32/64 boundaries on both sides
-        for i in [0, 1, -1, -32, -33, 127, 128, 255, 256, -128, -129,
-                  32767, 32768, -32768, -32769, 0x7fff_ffff, 0x8000_0000,
-                  -0x8000_0000, -0x8000_0001, Int.max, Int.min] {
+        // (Int64 literals + exactly: so this also compiles on 32-bit platforms)
+        for i64:Int64 in [0, 1, -1, -32, -33, 127, 128, 255, 256, -128, -129,
+                          32767, 32768, -32768, -32769, 0x7fff_ffff, 0x8000_0000,
+                          -0x8000_0000, -0x8000_0001, Int64(Int.max), Int64(Int.min)] {
+            guard let i = Int(exactly:i64) else { continue }    // skip out-of-width on 32-bit
             #expect(roundTrips(.Int(i)), "int \(i)")
         }
     }
