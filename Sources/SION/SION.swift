@@ -37,12 +37,19 @@ extension SION : Hashable {
         case .Data(let v):      v.hash(into:&hasher)
         case .Ext(let v):       v.hash(into:&hasher)
         case .Array(let a):     for e in a {
-            e.hash(into:&hasher)
+            hasher.combine(e)
             }
-        case .Dictionary(let d):for k in d.keys.sorted(by:{$0.hashValue < $1.hashValue}) {
-            k.hash(into:&hasher)
-            d[k]!.hash(into:&hasher)
+        case .Dictionary(let d):
+            // entries are combined commutatively (as stdlib Dictionary does)
+            // so the hash does not depend on iteration order
+            var commutative = 0
+            for (k, v) in d {
+                var h = Hasher()
+                h.combine(k)
+                h.combine(v)
+                commutative ^= h.finalize()
             }
+            hasher.combine(commutative)
         }
     }
 }
