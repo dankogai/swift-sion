@@ -1192,3 +1192,478 @@ extension SION {
         }
     }
 }
+
+//
+// MARK: - SIONEncoder / SIONDecoder — Codable support in the spirit of
+// JSONEncoder / JSONDecoder, with SION-native treatment of Date, Data,
+// and SION itself.
+//
+
+private struct SIONKey : CodingKey {
+    var stringValue:Swift.String
+    var intValue:Swift.Int?
+    init(stringValue:Swift.String) { self.stringValue = stringValue; self.intValue = nil }
+    init(intValue:Swift.Int)       { self.stringValue = "\(intValue)"; self.intValue = intValue }
+    static let `super` = SIONKey(stringValue:"super")
+}
+
+//
+// MARK: - SIONEncoder
+//
+
+open class SIONEncoder {
+    public init() {}
+    /// Encodes any Encodable value into a SION tree.
+    /// Date, Data, and SION values are embedded natively.
+    open func encode<T:Encodable>(_ value:T) throws -> SION {
+        if let sion = EncoderImpl.box(value) { return sion }
+        let storage = EncoderStorage()
+        try value.encode(to:EncoderImpl(storage:storage, codingPath:[]))
+        return storage.sion
+    }
+    /// Encodes into SION text. `space` as in SION.toString(space:).
+    open func encode<T:Encodable>(toString value:T, space:Swift.Int = 0) throws -> Swift.String {
+        return try encode(value).toString(space:space)
+    }
+}
+
+private final class EncoderStorage {
+    enum Kind {
+        case value(SION)
+        case array([EncoderStorage])
+        case dict([(SION.Key, EncoderStorage)])
+    }
+    var kind:Kind = .value(.Nil)
+    var sion:SION {
+        switch kind {
+        case .value(let v): return v
+        case .array(let a): return .Array(a.map{ $0.sion })
+        case .dict(let pairs):
+            var d = [SION.Key:SION.Value]()
+            pairs.forEach{ d[$0.0] = $0.1.sion }
+            return .Dictionary(d)
+        }
+    }
+    static func value(_ v:SION)->EncoderStorage {
+        let s = EncoderStorage()
+        s.kind = .value(v)
+        return s
+    }
+}
+
+private final class EncoderImpl : Encoder {
+    let storage:EncoderStorage
+    var codingPath:[CodingKey]
+    var userInfo:[CodingUserInfoKey:Any] = [:]
+    init(storage:EncoderStorage, codingPath:[CodingKey]) {
+        self.storage = storage
+        self.codingPath = codingPath
+    }
+    /// types that map to SION natively instead of via their Codable representation
+    static func box(_ value:Encodable)->SION? {
+        switch value {
+        case let v as SION:            return v
+        case let v as Foundation.Date: return .Date(v)
+        case let v as Foundation.Data: return .Data(v)
+        default:                       return nil
+        }
+    }
+    static func int<N:BinaryInteger>(_ v:N, _ path:[CodingKey]) throws -> SION {
+        guard let i = Swift.Int(exactly:v) else {
+            throw EncodingError.invalidValue(v, .init(
+                codingPath:path, debugDescription:"\(v) does not fit in Int"))
+        }
+        return .Int(i)
+    }
+    func encodeToStorage<T:Encodable>(_ value:T, at path:[CodingKey]) throws -> EncoderStorage {
+        if let sion = Self.box(value) { return .value(sion) }
+        let sub = EncoderStorage()
+        try value.encode(to:EncoderImpl(storage:sub, codingPath:path))
+        return sub
+    }
+    func container<Key:CodingKey>(keyedBy type:Key.Type)->KeyedEncodingContainer<Key> {
+        if case .value = storage.kind { storage.kind = .dict([]) }
+        return KeyedEncodingContainer(KeyedEnc<Key>(encoder:self))
+    }
+    func unkeyedContainer()->UnkeyedEncodingContainer {
+        if case .value = storage.kind { storage.kind = .array([]) }
+        return UnkeyedEnc(encoder:self)
+    }
+    func singleValueContainer()->SingleValueEncodingContainer {
+        return SingleEnc(encoder:self)
+    }
+}
+
+private struct KeyedEnc<K:CodingKey> : KeyedEncodingContainerProtocol {
+    typealias Key = K
+    let encoder:EncoderImpl
+    var codingPath:[CodingKey] { return encoder.codingPath }
+    private func sionKey(_ key:K)->SION.Key {
+        return key.intValue.map{ SION.Int($0) } ?? SION.String(key.stringValue)
+    }
+    private func set(_ key:K, _ sub:EncoderStorage) {
+        guard case .dict(var pairs) = encoder.storage.kind else {
+            fatalError("inconsistent keyed container")
+        }
+        pairs.append((sionKey(key), sub))
+        encoder.storage.kind = .dict(pairs)
+    }
+    private func set(_ key:K, _ v:SION) { set(key, .value(v)) }
+    func encodeNil(forKey key:K) throws               { set(key, SION.Nil) }
+    func encode(_ value:Bool,   forKey key:K) throws  { set(key, .Bool(value)) }
+    func encode(_ value:Swift.String, forKey key:K) throws { set(key, .String(value)) }
+    func encode(_ value:Double, forKey key:K) throws  { set(key, .Double(value)) }
+    func encode(_ value:Float,  forKey key:K) throws  { set(key, .Double(Double(value))) }
+    func encode(_ value:Swift.Int, forKey key:K) throws { set(key, .Int(value)) }
+    func encode(_ value:Int8,   forKey key:K) throws  { set(key, .Int(Swift.Int(value))) }
+    func encode(_ value:Int16,  forKey key:K) throws  { set(key, .Int(Swift.Int(value))) }
+    func encode(_ value:Int32,  forKey key:K) throws  { set(key, .Int(Swift.Int(value))) }
+    func encode(_ value:Int64,  forKey key:K) throws  { set(key, try EncoderImpl.int(value, codingPath+[key])) }
+    func encode(_ value:UInt,   forKey key:K) throws  { set(key, try EncoderImpl.int(value, codingPath+[key])) }
+    func encode(_ value:UInt8,  forKey key:K) throws  { set(key, .Int(Swift.Int(value))) }
+    func encode(_ value:UInt16, forKey key:K) throws  { set(key, .Int(Swift.Int(value))) }
+    func encode(_ value:UInt32, forKey key:K) throws  { set(key, try EncoderImpl.int(value, codingPath+[key])) }
+    func encode(_ value:UInt64, forKey key:K) throws  { set(key, try EncoderImpl.int(value, codingPath+[key])) }
+    func encode<T:Encodable>(_ value:T, forKey key:K) throws {
+        set(key, try encoder.encodeToStorage(value, at:codingPath+[key]))
+    }
+    func nestedContainer<NestedKey:CodingKey>(keyedBy keyType:NestedKey.Type, forKey key:K)->KeyedEncodingContainer<NestedKey> {
+        let sub = EncoderStorage()
+        sub.kind = .dict([])
+        set(key, sub)
+        return KeyedEncodingContainer(KeyedEnc<NestedKey>(
+            encoder:EncoderImpl(storage:sub, codingPath:codingPath+[key])))
+    }
+    func nestedUnkeyedContainer(forKey key:K)->UnkeyedEncodingContainer {
+        let sub = EncoderStorage()
+        sub.kind = .array([])
+        set(key, sub)
+        return UnkeyedEnc(encoder:EncoderImpl(storage:sub, codingPath:codingPath+[key]))
+    }
+    func superEncoder()->Encoder {
+        let sub = EncoderStorage()
+        guard case .dict(var pairs) = encoder.storage.kind else {
+            fatalError("inconsistent keyed container")
+        }
+        pairs.append((SION.String(SIONKey.super.stringValue), sub))
+        encoder.storage.kind = .dict(pairs)
+        return EncoderImpl(storage:sub, codingPath:codingPath+[SIONKey.super])
+    }
+    func superEncoder(forKey key:K)->Encoder {
+        let sub = EncoderStorage()
+        set(key, sub)
+        return EncoderImpl(storage:sub, codingPath:codingPath+[key])
+    }
+}
+
+private struct UnkeyedEnc : UnkeyedEncodingContainer {
+    let encoder:EncoderImpl
+    var codingPath:[CodingKey] { return encoder.codingPath }
+    var count:Swift.Int {
+        guard case .array(let a) = encoder.storage.kind else { return 0 }
+        return a.count
+    }
+    private func push(_ sub:EncoderStorage) {
+        guard case .array(var a) = encoder.storage.kind else {
+            fatalError("inconsistent unkeyed container")
+        }
+        a.append(sub)
+        encoder.storage.kind = .array(a)
+    }
+    private func push(_ v:SION) { push(.value(v)) }
+    private var nextPath:[CodingKey] { return codingPath + [SIONKey(intValue:count)] }
+    func encodeNil() throws              { push(SION.Nil) }
+    func encode(_ value:Bool) throws     { push(.Bool(value)) }
+    func encode(_ value:Swift.String) throws { push(.String(value)) }
+    func encode(_ value:Double) throws   { push(.Double(value)) }
+    func encode(_ value:Float) throws    { push(.Double(Double(value))) }
+    func encode(_ value:Swift.Int) throws { push(.Int(value)) }
+    func encode(_ value:Int8) throws     { push(.Int(Swift.Int(value))) }
+    func encode(_ value:Int16) throws    { push(.Int(Swift.Int(value))) }
+    func encode(_ value:Int32) throws    { push(.Int(Swift.Int(value))) }
+    func encode(_ value:Int64) throws    { push(try EncoderImpl.int(value, nextPath)) }
+    func encode(_ value:UInt) throws     { push(try EncoderImpl.int(value, nextPath)) }
+    func encode(_ value:UInt8) throws    { push(.Int(Swift.Int(value))) }
+    func encode(_ value:UInt16) throws   { push(.Int(Swift.Int(value))) }
+    func encode(_ value:UInt32) throws   { push(try EncoderImpl.int(value, nextPath)) }
+    func encode(_ value:UInt64) throws   { push(try EncoderImpl.int(value, nextPath)) }
+    func encode<T:Encodable>(_ value:T) throws {
+        push(try encoder.encodeToStorage(value, at:nextPath))
+    }
+    func nestedContainer<NestedKey:CodingKey>(keyedBy keyType:NestedKey.Type)->KeyedEncodingContainer<NestedKey> {
+        let sub = EncoderStorage()
+        sub.kind = .dict([])
+        let path = nextPath
+        push(sub)
+        return KeyedEncodingContainer(KeyedEnc<NestedKey>(
+            encoder:EncoderImpl(storage:sub, codingPath:path)))
+    }
+    func nestedUnkeyedContainer()->UnkeyedEncodingContainer {
+        let sub = EncoderStorage()
+        sub.kind = .array([])
+        let path = nextPath
+        push(sub)
+        return UnkeyedEnc(encoder:EncoderImpl(storage:sub, codingPath:path))
+    }
+    func superEncoder()->Encoder {
+        let sub = EncoderStorage()
+        let path = nextPath
+        push(sub)
+        return EncoderImpl(storage:sub, codingPath:path)
+    }
+}
+
+private struct SingleEnc : SingleValueEncodingContainer {
+    let encoder:EncoderImpl
+    var codingPath:[CodingKey] { return encoder.codingPath }
+    private func set(_ v:SION) { encoder.storage.kind = .value(v) }
+    func encodeNil() throws              { set(SION.Nil) }
+    func encode(_ value:Bool) throws     { set(.Bool(value)) }
+    func encode(_ value:Swift.String) throws { set(.String(value)) }
+    func encode(_ value:Double) throws   { set(.Double(value)) }
+    func encode(_ value:Float) throws    { set(.Double(Double(value))) }
+    func encode(_ value:Swift.Int) throws { set(.Int(value)) }
+    func encode(_ value:Int8) throws     { set(.Int(Swift.Int(value))) }
+    func encode(_ value:Int16) throws    { set(.Int(Swift.Int(value))) }
+    func encode(_ value:Int32) throws    { set(.Int(Swift.Int(value))) }
+    func encode(_ value:Int64) throws    { set(try EncoderImpl.int(value, codingPath)) }
+    func encode(_ value:UInt) throws     { set(try EncoderImpl.int(value, codingPath)) }
+    func encode(_ value:UInt8) throws    { set(.Int(Swift.Int(value))) }
+    func encode(_ value:UInt16) throws   { set(.Int(Swift.Int(value))) }
+    func encode(_ value:UInt32) throws   { set(try EncoderImpl.int(value, codingPath)) }
+    func encode(_ value:UInt64) throws   { set(try EncoderImpl.int(value, codingPath)) }
+    func encode<T:Encodable>(_ value:T) throws {
+        if let sion = EncoderImpl.box(value) { set(sion); return }
+        try value.encode(to:encoder)
+    }
+}
+
+//
+// MARK: - SIONDecoder
+//
+
+open class SIONDecoder {
+    public init() {}
+    /// Decodes any Decodable type from a SION tree.
+    /// Date, Data, and SION values are read natively.
+    open func decode<T:Decodable>(_ type:T.Type, from sion:SION) throws -> T {
+        if let e = sion.error {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath:[], debugDescription:"not a valid SION value: \(e)"))
+        }
+        return try DecoderImpl.unbox(sion, as:type, at:[])
+    }
+    /// Decodes from SION text.
+    open func decode<T:Decodable>(_ type:T.Type, from string:Swift.String) throws -> T {
+        return try decode(type, from:SION(string:string))
+    }
+    /// Decodes from utf8-encoded SION text.
+    open func decode<T:Decodable>(_ type:T.Type, from data:Foundation.Data) throws -> T {
+        guard let string = Swift.String(data:data, encoding:.utf8) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath:[], debugDescription:"input is not valid utf8"))
+        }
+        return try decode(type, from:string)
+    }
+}
+
+private final class DecoderImpl : Decoder {
+    let sion:SION
+    var codingPath:[CodingKey]
+    var userInfo:[CodingUserInfoKey:Any] = [:]
+    init(sion:SION, codingPath:[CodingKey]) {
+        self.sion = sion
+        self.codingPath = codingPath
+    }
+    /// types that are read from SION natively instead of via their Codable representation
+    static func unbox<T:Decodable>(_ sion:SION, as type:T.Type, at path:[CodingKey]) throws -> T {
+        if type == SION.self { return sion as! T }
+        if type == Foundation.Date.self {
+            // native .Date, or a number for interop with JSON-sourced trees
+            guard let date = sion.date ?? sion.number.map({ Foundation.Date(timeIntervalSince1970:$0) }) else {
+                throw mismatch(type, sion, path)
+            }
+            return date as! T
+        }
+        if type == Foundation.Data.self {
+            // native .Data, or a base64 string for interop with JSON-sourced trees
+            guard let data = sion.data ?? sion.string.flatMap({ Foundation.Data(base64Encoded:$0) }) else {
+                throw mismatch(type, sion, path)
+            }
+            return data as! T
+        }
+        return try T(from:DecoderImpl(sion:sion, codingPath:path))
+    }
+    static func mismatch<T>(_ type:T.Type, _ sion:SION, _ path:[CodingKey])->DecodingError {
+        return DecodingError.typeMismatch(type, .init(
+            codingPath:path, debugDescription:"expected \(type), got \(sion)"))
+    }
+    static func int<N:FixedWidthInteger>(_ sion:SION, as type:N.Type, at path:[CodingKey]) throws -> N {
+        if let i = sion.int,    let v = N(exactly:i) { return v }
+        if let d = sion.double, let v = N(exactly:d) { return v }
+        throw mismatch(type, sion, path)
+    }
+    func container<Key:CodingKey>(keyedBy type:Key.Type) throws -> KeyedDecodingContainer<Key> {
+        guard let dict = sion.dictionary else { throw Self.mismatch([SION.Key:SION.Value].self, sion, codingPath) }
+        return KeyedDecodingContainer(KeyedDec<Key>(decoder:self, dict:dict))
+    }
+    func unkeyedContainer() throws -> UnkeyedDecodingContainer {
+        guard let array = sion.array else { throw Self.mismatch([SION].self, sion, codingPath) }
+        return UnkeyedDec(decoder:self, array:array)
+    }
+    func singleValueContainer() throws -> SingleValueDecodingContainer {
+        return SingleDec(decoder:self)
+    }
+}
+
+private struct KeyedDec<K:CodingKey> : KeyedDecodingContainerProtocol {
+    typealias Key = K
+    let decoder:DecoderImpl
+    let dict:[SION.Key:SION.Value]
+    var codingPath:[CodingKey] { return decoder.codingPath }
+    var allKeys:[K] {
+        return dict.keys.compactMap {
+            $0.string.flatMap{ K(stringValue:$0) } ?? $0.int.flatMap{ K(intValue:$0) }
+        }
+    }
+    private func lookup(_ key:K)->SION? {
+        if let v = dict[SION.String(key.stringValue)] { return v }
+        if let i = key.intValue, let v = dict[SION.Int(i)] { return v }
+        return nil
+    }
+    func contains(_ key:K)->Bool { return lookup(key) != nil }
+    private func require(_ key:K) throws -> SION {
+        guard let v = lookup(key) else {
+            throw DecodingError.keyNotFound(key, .init(
+                codingPath:codingPath, debugDescription:"key \(key.stringValue) not found"))
+        }
+        return v
+    }
+    private func prim<T>(_ type:T.Type, _ key:K, _ get:(SION)->T?) throws -> T {
+        let v = try require(key)
+        guard let t = get(v) else { throw DecoderImpl.mismatch(type, v, codingPath+[key]) }
+        return t
+    }
+    func decodeNil(forKey key:K) throws -> Bool { return try require(key).isNil }
+    func decode(_ type:Bool.Type,   forKey key:K) throws -> Bool   { return try prim(type, key){ $0.bool } }
+    func decode(_ type:Swift.String.Type, forKey key:K) throws -> Swift.String { return try prim(type, key){ $0.string } }
+    func decode(_ type:Double.Type, forKey key:K) throws -> Double { return try prim(type, key){ $0.number } }
+    func decode(_ type:Float.Type,  forKey key:K) throws -> Float  { return try prim(type, key){ $0.number.map{Float($0)} } }
+    func decode(_ type:Swift.Int.Type, forKey key:K) throws -> Swift.Int { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:Int8.Type,   forKey key:K) throws -> Int8   { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:Int16.Type,  forKey key:K) throws -> Int16  { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:Int32.Type,  forKey key:K) throws -> Int32  { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:Int64.Type,  forKey key:K) throws -> Int64  { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:UInt.Type,   forKey key:K) throws -> UInt   { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:UInt8.Type,  forKey key:K) throws -> UInt8  { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:UInt16.Type, forKey key:K) throws -> UInt16 { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:UInt32.Type, forKey key:K) throws -> UInt32 { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode(_ type:UInt64.Type, forKey key:K) throws -> UInt64 { return try DecoderImpl.int(require(key), as:type, at:codingPath+[key]) }
+    func decode<T:Decodable>(_ type:T.Type, forKey key:K) throws -> T {
+        return try DecoderImpl.unbox(require(key), as:type, at:codingPath+[key])
+    }
+    func nestedContainer<NestedKey:CodingKey>(keyedBy type:NestedKey.Type, forKey key:K) throws -> KeyedDecodingContainer<NestedKey> {
+        return try DecoderImpl(sion:require(key), codingPath:codingPath+[key]).container(keyedBy:type)
+    }
+    func nestedUnkeyedContainer(forKey key:K) throws -> UnkeyedDecodingContainer {
+        return try DecoderImpl(sion:require(key), codingPath:codingPath+[key]).unkeyedContainer()
+    }
+    func superDecoder() throws -> Decoder {
+        let v = dict[SION.String(SIONKey.super.stringValue)] ?? SION.Nil
+        return DecoderImpl(sion:v, codingPath:codingPath+[SIONKey.super])
+    }
+    func superDecoder(forKey key:K) throws -> Decoder {
+        return DecoderImpl(sion:lookup(key) ?? SION.Nil, codingPath:codingPath+[key])
+    }
+}
+
+private struct UnkeyedDec : UnkeyedDecodingContainer {
+    let decoder:DecoderImpl
+    let array:[SION]
+    var currentIndex:Swift.Int = 0
+    var codingPath:[CodingKey] { return decoder.codingPath }
+    var count:Swift.Int? { return array.count }
+    var isAtEnd:Bool { return array.count <= currentIndex }
+    private var nextPath:[CodingKey] { return codingPath + [SIONKey(intValue:currentIndex)] }
+    private mutating func next<T>(_ type:T.Type) throws -> SION {
+        guard !isAtEnd else {
+            throw DecodingError.valueNotFound(type, .init(
+                codingPath:nextPath, debugDescription:"unkeyed container is at end"))
+        }
+        defer { currentIndex += 1 }
+        return array[currentIndex]
+    }
+    private mutating func prim<T>(_ type:T.Type, _ get:(SION)->T?) throws -> T {
+        let path = nextPath
+        let v = try next(type)
+        guard let t = get(v) else { throw DecoderImpl.mismatch(type, v, path) }
+        return t
+    }
+    mutating func decodeNil() throws -> Bool {
+        guard !isAtEnd else {
+            throw DecodingError.valueNotFound(SION.self, .init(
+                codingPath:nextPath, debugDescription:"unkeyed container is at end"))
+        }
+        // per Decoder semantics: only consume the value if it is nil
+        if array[currentIndex].isNil { currentIndex += 1; return true }
+        return false
+    }
+    mutating func decode(_ type:Bool.Type) throws -> Bool     { return try prim(type){ $0.bool } }
+    mutating func decode(_ type:Swift.String.Type) throws -> Swift.String { return try prim(type){ $0.string } }
+    mutating func decode(_ type:Double.Type) throws -> Double { return try prim(type){ $0.number } }
+    mutating func decode(_ type:Float.Type) throws -> Float   { return try prim(type){ $0.number.map{Float($0)} } }
+    mutating func decode(_ type:Swift.Int.Type) throws -> Swift.Int { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:Int8.Type) throws -> Int8     { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:Int16.Type) throws -> Int16   { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:Int32.Type) throws -> Int32   { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:Int64.Type) throws -> Int64   { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:UInt.Type) throws -> UInt     { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:UInt8.Type) throws -> UInt8   { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:UInt16.Type) throws -> UInt16 { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:UInt32.Type) throws -> UInt32 { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode(_ type:UInt64.Type) throws -> UInt64 { let p = nextPath; return try DecoderImpl.int(next(type), as:type, at:p) }
+    mutating func decode<T:Decodable>(_ type:T.Type) throws -> T {
+        let path = nextPath
+        return try DecoderImpl.unbox(try next(type), as:type, at:path)
+    }
+    mutating func nestedContainer<NestedKey:CodingKey>(keyedBy type:NestedKey.Type) throws -> KeyedDecodingContainer<NestedKey> {
+        let path = nextPath
+        return try DecoderImpl(sion:try next([SION.Key:SION.Value].self), codingPath:path).container(keyedBy:type)
+    }
+    mutating func nestedUnkeyedContainer() throws -> UnkeyedDecodingContainer {
+        let path = nextPath
+        return try DecoderImpl(sion:try next([SION].self), codingPath:path).unkeyedContainer()
+    }
+    mutating func superDecoder() throws -> Decoder {
+        let path = nextPath
+        return DecoderImpl(sion:try next(SION.self), codingPath:path)
+    }
+}
+
+private struct SingleDec : SingleValueDecodingContainer {
+    let decoder:DecoderImpl
+    var codingPath:[CodingKey] { return decoder.codingPath }
+    private var sion:SION { return decoder.sion }
+    private func prim<T>(_ type:T.Type, _ get:(SION)->T?) throws -> T {
+        guard let t = get(sion) else { throw DecoderImpl.mismatch(type, sion, codingPath) }
+        return t
+    }
+    func decodeNil()->Bool { return sion.isNil }
+    func decode(_ type:Bool.Type) throws -> Bool     { return try prim(type){ $0.bool } }
+    func decode(_ type:Swift.String.Type) throws -> Swift.String { return try prim(type){ $0.string } }
+    func decode(_ type:Double.Type) throws -> Double { return try prim(type){ $0.number } }
+    func decode(_ type:Float.Type) throws -> Float   { return try prim(type){ $0.number.map{Float($0)} } }
+    func decode(_ type:Swift.Int.Type) throws -> Swift.Int { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:Int8.Type) throws -> Int8     { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:Int16.Type) throws -> Int16   { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:Int32.Type) throws -> Int32   { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:Int64.Type) throws -> Int64   { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:UInt.Type) throws -> UInt     { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:UInt8.Type) throws -> UInt8   { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:UInt16.Type) throws -> UInt16 { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:UInt32.Type) throws -> UInt32 { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode(_ type:UInt64.Type) throws -> UInt64 { return try DecoderImpl.int(sion, as:type, at:codingPath) }
+    func decode<T:Decodable>(_ type:T.Type) throws -> T {
+        return try DecoderImpl.unbox(sion, as:type, at:codingPath)
+    }
+}
