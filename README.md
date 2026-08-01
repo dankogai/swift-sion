@@ -39,6 +39,7 @@ SION can serialize anything JSON can plus:
 * non-`String` keys in `Dictionary`
 * `Int` and `Double` distinctively, not `Number`.  Therefore you can exchange 64-bit integers losslessly.
 * // comment support!
+* `SIONEncoder` and `SIONDecoder` — encode and decode your own `Codable` types, like `JSONEncoder` and `JSONDecoder`.
 * Roughly equvalent to [MsgPack] in terms of capability.
   * [MsgPack] is a binary serialization while `SION` is a text serialization.
 
@@ -63,6 +64,29 @@ SION can serialize anything JSON can plus:
 * As you see `SION` is upper-compatible with JSON and Property List.  As a matter of fact, `SION` can {,de}serialize JSON and Property List.
 
 As for the format details, see the main page of [SION].
+
+## SIONEncoder / SIONDecoder
+
+Your own `Codable` types {en,de}code just like they do with `JSONEncoder` and `JSONDecoder` — except `Date` and `Data` are stored natively, so no encoding strategies are needed:
+
+```swift
+struct Person : Codable, Equatable {
+    let name:String
+    let birthday:Date
+    let avatar:Data
+    let tags:[String]
+}
+let dan  = Person(
+    name:     "dankogai",
+    birthday: Date(timeIntervalSince1970: 0x1p30),
+    avatar:   Data([0xde, 0xad, 0xbe, 0xef]),
+    tags:     ["swift", "perl"]
+)
+let text = try SIONEncoder().encode(toString:dan, space:2)  // SION text
+let back = try SIONDecoder().decode(Person.self, from:text) // == dan
+```
+
+See [DESCRIPTION.md] for details.
 
 ## DESCRIPTION
 

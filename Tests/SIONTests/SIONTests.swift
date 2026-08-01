@@ -428,4 +428,128 @@ import Foundation
         #expect(SION(msgPack:whole[2...]) == .Int(42))
     }
 }
+
+@Suite struct SIONCodecTests {
+    struct Person : Codable, Equatable {
+        let name:String
+        let age:Int
+        let height:Double
+        let birthday:Date
+        let avatar:Data
+        let tags:[String]
+        let scores:[String:Int]
+        let nickname:String?
+    }
+    let dan = Person(
+        name:      "dankogai",
+        age:       42,
+        height:    172.5,
+        birthday:  Date(timeIntervalSince1970: -0x1.4p27), // exact binary fraction
+        avatar:    Data([0xde, 0xad, 0xbe, 0xef]),
+        tags:      ["swift", "perl"],
+        scores:    ["math":100, "history":50],
+        nickname:  nil
+    )
+    @Test func roundTrip() throws {
+        let sion = try SIONEncoder().encode(dan)
+        #expect(try SIONDecoder().decode(Person.self, from:sion) == dan)
+    }
+    @Test func nativeRepresentation() throws {
+        // Date and Data encode as native SION types, not doubles / base64 strings
+        let sion = try SIONEncoder().encode(dan)
+        #expect(sion["birthday"].date == dan.birthday)
+        #expect(sion["avatar"].data == dan.avatar)
+        #expect(sion["name"].string == "dankogai")
+        #expect(sion["age"].int == 42)
+        // nil Optional is omitted, as JSONEncoder does
+        #expect(sion["nickname"].error?.type == .keyNonexistent)
+    }
+    @Test func roundTripViaString() throws {
+        // through the textual representation, not just the tree
+        let text = try SIONEncoder().encode(toString:dan, space:2)
+        #expect(try SIONDecoder().decode(Person.self, from:text) == dan)
+        let data = text.data(using:.utf8)!
+        #expect(try SIONDecoder().decode(Person.self, from:data) == dan)
+    }
+    @Test func scalarsAndCollections() throws {
+        #expect(try SIONDecoder().decode(Int.self,    from:SIONEncoder().encode(42)) == 42)
+        #expect(try SIONDecoder().decode(String.self, from:SIONEncoder().encode("s")) == "s")
+        #expect(try SIONDecoder().decode(Bool.self,   from:SIONEncoder().encode(true)) == true)
+        #expect(try SIONDecoder().decode(Double.self, from:SIONEncoder().encode(42.195)) == 42.195)
+        #expect(try SIONDecoder().decode([Int].self,  from:SIONEncoder().encode([1,2,3])) == [1,2,3])
+        #expect(try SIONDecoder().decode([String:[Int]].self,
+                from:SIONEncoder().encode(["a":[1], "b":[]])) == ["a":[1], "b":[]])
+        #expect(try SIONDecoder().decode([Int?].self,
+                from:SIONEncoder().encode([1, nil, 3])) == [1, nil, 3])
+    }
+    @Test func nonFiniteDoubles() throws {
+        // JSONEncoder throws on these; SION supports them natively
+        #expect(try SIONDecoder().decode(Double.self, from:SIONEncoder().encode(Double.infinity)) == .infinity)
+        #expect(try SIONDecoder().decode(Double.self, from:SIONEncoder().encode(-Double.infinity)) == -.infinity)
+        #expect(try SIONDecoder().decode(Double.self, from:SIONEncoder().encode(Double.nan)).isNaN)
+    }
+    @Test func intKeyedDictionary() throws {
+        // Int-keyed dictionaries use native .Int keys, not stringified ones
+        let sion = try SIONEncoder().encode([1:"one", 2:"two"])
+        #expect(sion[SION.Int(1)].string == "one")
+        #expect(try SIONDecoder().decode([Int:String].self, from:sion) == [1:"one", 2:"two"])
+    }
+    @Test func sionPassthrough() throws {
+        // a SION field embeds as-is and comes back intact
+        struct Doc : Codable, Equatable { let id:Int; let body:SION }
+        let doc = Doc(id:1, body:["x":[1, true, nil], "d":.Date(0.0)])
+        let sion = try SIONEncoder().encode(doc)
+        #expect(sion["body"] == doc.body)
+        #expect(try SIONDecoder().decode(Doc.self, from:sion) == doc)
+    }
+    @Test func enumsAndNesting() throws {
+        enum Suit : String, Codable { case spades, hearts }
+        struct Card : Codable, Equatable {
+            let suit:String  // keep it simple for Equatable
+            let rank:Int
+        }
+        struct Hand : Codable, Equatable { let cards:[Card]; let sorted:Bool }
+        let hand = Hand(cards:[Card(suit:"spades", rank:1), Card(suit:"hearts", rank:13)], sorted:false)
+        #expect(try SIONDecoder().decode(Hand.self, from:SIONEncoder().encode(hand)) == hand)
+        #expect(try SIONDecoder().decode(Suit.self, from:SIONEncoder().encode(Suit.spades)) == .spades)
+    }
+    @Test func decodeFromHandwrittenSION() throws {
+        struct Server : Codable, Equatable { let host:String; let port:Int; let tls:Bool }
+        let text = """
+            [
+                "host" : "github.com", // comments welcome
+                "port" : 443,
+                "tls"  : true,
+            ]
+            """
+        #expect(try SIONDecoder().decode(Server.self, from:text) == Server(host:"github.com", port:443, tls:true))
+    }
+    @Test func decodingErrors() {
+        #expect(throws:DecodingError.self) {
+            try SIONDecoder().decode(Int.self, from:SION.String("not a number"))
+        }
+        #expect(throws:DecodingError.self) {  // missing key
+            try SIONDecoder().decode([String:Int].self, from:SION(string:"[1,2]"))
+        }
+        #expect(throws:DecodingError.self) {  // parse error propagates
+            try SIONDecoder().decode(Int.self, from:"not valid sion")
+        }
+        #expect(throws:DecodingError.self) {  // Int overflow
+            try SIONDecoder().decode(Int8.self, from:SION.Int(1000))
+        }
+    }
+    @Test func encodingErrors() {
+        #expect(throws:EncodingError.self) {  // UInt64 beyond Int.max
+            try SIONEncoder().encode(["big":UInt64.max])
+        }
+    }
+    @Test func jsonInterop() throws {
+        // dates-as-numbers and data-as-base64 from JSON-sourced trees still decode
+        struct Stamp : Codable, Equatable { let at:Date; let raw:Data }
+        let sion = SION(json:#"{"at": 0.5, "raw": "3q2+7w=="}"#)
+        let stamp = try SIONDecoder().decode(Stamp.self, from:sion)
+        #expect(stamp.at == Date(timeIntervalSince1970:0.5))
+        #expect(stamp.raw == Data([0xde, 0xad, 0xbe, 0xef]))
+    }
+}
 #endif // canImport(Testing)

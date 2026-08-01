@@ -8,6 +8,7 @@
   * [Property List] - from and to
   * [MsgPack] - from and to
   * [YAML] - output only
+* `SIONEncoder` and `SIONDecoder` which {en,de}code your own `Codable` types, like `JSONEncoder` and `JSONDecoder`.
 
 [JSON]: https://json.org
 [Property List]: https://en.wikipedia.org/wiki/Property_list
@@ -410,6 +411,53 @@ extension SION {
 }
 ```
 
+### SIONEncoder and SIONDecoder
+
+Like `JSONEncoder` and `JSONDecoder`, `SIONEncoder` and `SIONDecoder` bridge your own `Codable` types and SION.
+
+```swift
+struct Person : Codable, Equatable {
+    let name:String
+    let birthday:Date
+    let avatar:Data
+    let tags:[String]
+}
+let dan = Person(
+    name:     "dankogai",
+    birthday: Date(timeIntervalSince1970: 0x1p30),
+    avatar:   Data([0xde, 0xad, 0xbe, 0xef]),
+    tags:     ["swift", "perl"]
+)
+let sion = try SIONEncoder().encode(dan)                    // -> SION
+let text = try SIONEncoder().encode(toString:dan, space:2)  // -> String
+let back = try SIONDecoder().decode(Person.self, from:text) // == dan
+```
+
+Because SION is more expressive than JSON, the encoder needs no strategies:
+
+* `Date` and `Data` encode natively as `.Date` and `.Data` — no `dateEncodingStrategy` or `dataEncodingStrategy` counterparts, no doubles or base64 strings.
+* A `SION`-typed property embeds as-is, so typed and free-form data mix freely.
+* `Int`-keyed dictionaries keep native `Int` keys instead of being stringified.
+* Non-finite doubles (`infinity`, `nan`) just work, where `JSONEncoder` throws.
+* `nil` optionals are omitted from output, as `JSONEncoder` does.
+
+`SIONDecoder.decode` accepts a `SION` tree, SION text in `String`, or utf8-encoded `Data`:
+
+```swift
+struct Server : Codable { let host:String; let port:Int; let tls:Bool }
+let server = try SIONDecoder().decode(Server.self, from:"""
+    [
+        "host" : "github.com", // comments welcome
+        "port" : 443,
+        "tls"  : true,
+    ]
+    """)
+```
+
+For interoperability with trees that came from JSON — say via `SION(json:)` — the decoder is lenient where JSON is less expressive: `Date` also accepts a number (`timeIntervalSince1970`) and `Data` also accepts a base64 `String`.
+
+Failures throw the standard `EncodingError` / `DecodingError` with full coding paths, so error handling works exactly as it does with `JSONEncoder` and `JSONDecoder`.
+
 ### Protocol Conformance
 
 * `SION` is `Equatable` so you can check if two JSONs are the same.
@@ -424,7 +472,7 @@ SION(string:foo) == SION(jsonUrlString:"https://example.com/whereever")
 
 * `SION` is `CustomStringConvertible` whose `.description` is always a valid SION.
 
-* `SION` is `Codable`.
+* `SION` is `Codable`.  And `SIONEncoder`/`SIONDecoder` above make *your* `Codable` types SION-{en,de}codable.
 
 * `SION` is `Sequence`.  But when you iterate, be careful with the key.
 
