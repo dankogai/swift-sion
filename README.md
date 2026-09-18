@@ -112,7 +112,9 @@ Simply
 $ swift run --repl
 ```
 
-Note for Swift 6.4 or later: SwiftPM switched its default build system to `swiftbuild`, whose REPL support is currently broken — the REPL launches but cannot find the module symbols.  Until that is fixed upstream, ask for the previous build system explicitly:
+Note for Swift 6.4 or later: SwiftPM switched its default build system to `swiftbuild`, whose REPL support is currently broken — the REPL launches but cannot find the module symbols ([swiftlang/swift-package-manager#10553]).  Until that is fixed upstream, ask for the previous build system explicitly:
+
+[swiftlang/swift-package-manager#10553]: https://github.com/swiftlang/swift-package-manager/issues/10553
 
 ```sh
 $ swift run --repl --build-system native
