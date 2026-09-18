@@ -22,5 +22,7 @@ jobs:
         with:
           swift-version: ${{ matrix.swift }}
       - uses: actions/checkout@v6
+      - name: Playground copy of SION.swift is in sync
+        run: diff -u Sources/SION/SION.swift macOS.playground/Sources/SION.swift
       - name: Run tests
         run: swift test -c release -Xswiftc -enable-testing -v
