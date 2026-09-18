@@ -1,6 +1,6 @@
 //: [Previous](@previous)
 //: ### Manipulation
-import SION
+import Foundation
 
 //: a blank JSON Array is as simple as:
 var sion = SION([])

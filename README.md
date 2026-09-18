@@ -112,6 +112,12 @@ Simply
 $ swift run --repl
 ```
 
+Note for Swift 6.4 or later: SwiftPM switched its default build system to `swiftbuild`, whose REPL support is currently broken — the REPL launches but cannot find the module symbols.  Until that is fixed upstream, ask for the previous build system explicitly:
+
+```sh
+$ swift run --repl --build-system native
+```
+
 and in your repl,
 
 ```sh
@@ -141,7 +147,13 @@ sion: SION.SION = Object {
 
 ### Xcode
 
-Just open ./Package.json
+Just open ./Package.swift
+
+### Xcode Playground
+
+The bundled [macOS.playground] is self-contained: it carries its own copy of [SION.swift] in its `Sources`, so just open it in Xcode and run any page.  It no longer relies on Xcode building the package scheme first (which stopped working as of Xcode 26.4 / Swift 6.4).
+
+[macOS.playground]: ./macOS.playground
 
 ### Swift Playgrounds App
 
