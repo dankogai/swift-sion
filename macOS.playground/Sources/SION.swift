@@ -259,7 +259,7 @@ extension SION {
     }
     public init(jsonURL:URL) {
         do {
-            let str = try Swift.String(contentsOf: jsonURL)
+            let str = try Swift.String(contentsOf: jsonURL, encoding: .utf8)
             self = SION(json:str)
         } catch {
             self = .Error(.nsError(error as NSError))
